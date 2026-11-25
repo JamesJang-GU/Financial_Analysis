@@ -72,6 +72,10 @@ input:focus,select:focus{outline:2px solid var(--amber);outline-offset:0;border-
 .drop{border:2px dashed var(--axis);border-radius:12px;padding:20px 14px;text-align:center;cursor:pointer;background:var(--soft);transition:.15s}
 .drop:hover,.drop.over{border-color:var(--amber);background:var(--amber-soft)}
 .drop b{font-size:14.5px}.drop .note{margin-top:4px}
+input[type=text].auto{background:var(--amber-soft);border-color:var(--amber)}
+.metaHint{font-size:12.5px;color:var(--muted);line-height:1.7}
+.metaHint:not(:empty){margin-top:8px}
+.metaHint .btn{padding:1px 8px;font-size:12px;margin-left:4px}
 .status{margin-top:8px;font-size:13px;min-height:20px}
 .status.err{color:var(--crit-ink)}
 .seg{display:inline-flex;gap:3px;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:3px}
@@ -158,13 +162,14 @@ svg text{font-family:'Noto Sans KR',system-ui,sans-serif}
       <div class="panel">
         <div class="ph"><span class="tag">기본 정보</span>대상 회사</div>
         <div class="row">
-          <label class="f">회사명<input type="text" id="coName" placeholder="예: OO로지스틱스" style="width:170px"></label>
-          <label class="f">기준 연도<input type="text" id="coYear" placeholder="2025" style="width:80px"></label>
+          <label class="f">회사명<input type="text" id="coName" placeholder="DART 업로드 시 자동 입력" style="width:170px"></label>
+          <label class="f">기준 연도<input type="text" id="coYear" placeholder="자동 / 2025" style="width:80px"></label>
           <label class="f">금액 단위<select id="unit">
             <option value="1">원</option><option value="1000">천원</option>
             <option value="1000000" selected>백만원</option><option value="100000000">억원</option>
           </select></label>
         </div>
+        <div class="metaHint" id="metaHint"></div>
         <div class="row" style="margin-top:12px">
           <button class="btn sm" id="btnSample">샘플 데이터 (DART + 회사)</button>
         </div>
@@ -591,7 +596,7 @@ function updateRecon(){
   $('#recon').innerHTML = msg;
 }
 /* ═════════ 6. 파일 추출 (엑셀 · PDF) ═════════ */
-const ex = {target:'dart', sheets:{}, sheet:null, rows:[]};
+const ex = {target:'dart', sheets:{}, sheet:null, rows:[], text:[]};
 const UNIT_RE = /단위\s*[:：]?\s*(백만원|천원|억원|원)/;
 const UNIT_VAL = {'원':1,'천원':1000,'백만원':1000000,'억원':100000000};
 function setStatus(t, err){ const s = $('#st-'+ex.target); s.textContent = t; s.className = 'status'+(err?' err':''); }
@@ -601,6 +606,7 @@ async function handleFile(f){
   setStatus(`'${f.name}' 읽는 중…`);
   try{
     const buf = await f.arrayBuffer();
+    ex.text = [];
     if(/\.pdf$/i.test(f.name)) await readPdf(buf); else readXlsx(buf);
     const names = Object.keys(ex.sheets);
     if(!names.length) throw new Error('금액이 있는 행을 찾지 못했습니다');
@@ -612,6 +618,9 @@ async function handleFile(f){
     $('#exPages').value = '';
     $('#exTarget').innerHTML = `<span class="pill st-ok">${DS_NAME[ex.target]}</span>`;
     selectSheet(best);
+    const meta = detectMeta(ex.text, f.name);
+    if(!meta.year){ const c = ex.sheets[best].cols[+$('#exCol').value], m = c && (c.head||'').match(/(?:19|20)\d\d/); if(m) meta.year = m[0]; }
+    applyMeta(meta, ex.target);
     $('#extractPanel').style.display = '';
     $('#extractPanel').scrollIntoView({behavior:'smooth', block:'start'});
     setStatus(`✓ '${f.name}' 추출 완료 — 매핑을 확인한 뒤 '입력표에 반영'을 누르세요`);
@@ -631,6 +640,7 @@ function readXlsx(buf){
       r.forEach((cell, ci)=>{
         if(cell==null || cell==='') return;
         const s = String(cell).trim();
+        if(ri < 40 && typeof cell === 'string') ex.text.push(s);
         if(!unit){ const m = s.match(UNIT_RE); if(m) unit = UNIT_VAL[m[1]]; }
         if(CODE_RE.test(s)){ code = s; return; }
         if(/^(직접|간접)(비)?$/.test(s)){ dir = s[0]==='직' ? 'D' : 'I'; return; }
@@ -680,6 +690,7 @@ async function readPdf(buf){
     for(const ln of lines){
       ln.items.sort((a,b)=>a.x-b.x);
       const text = ln.items.map(i=>i.s).join(' ');
+      ex.text.push(text);
       if(!unit){ const m = text.match(UNIT_RE); if(m) unit = UNIT_VAL[m[1]]; }
       let label = '', nums = [];
       for(const t of text.split(/\s+/)){
@@ -696,6 +707,79 @@ async function readPdf(buf){
   }
   const cols = [0,1,2,3].map(i=>({c:i, name:`행별 ${i+1}번째 금액${i===0?' (보통 당기)':i===1?' (보통 전기 또는 당기 소계)':''}`, head:i===0?'당기':''}));
   ex.sheets = rows.length ? {'PDF':{rows, cols, unit, pos:true}} : {};
+}
+/* 회사명 · 기준 연도 자동 감지 (감사보고서 표지 · 재무제표 머리글 · 파일명) */
+const NAME_STOP = /^(등|등의|등은|의|및|그|각|이|당사|당|회사|본사|지배기업|지배회사|종속기업|종속회사|연결회사|연결실체|관계기업|공동기업|해당|별도|상장|비상장|외국|국내|모든|기타)$|법률|외부감사|감사인|회계법인|주식회사/;
+const PARTICLE_ANY = /(와|과|의|은|는|을|를|에서|으로|이|가|에|로)$/, PARTICLE_SURE = /(와|과|의|은|는|을|를|에서|으로)$/;
+function detectMeta(lines, fname){
+  const score = {}, corp = {};
+  const add = (raw, w, isCorp) => {
+    const c = String(raw||'').replace(/^(주식회사|㈜|\(주\))\s*/,'').replace(/\s*(주식회사|㈜|\(주\))$/,'').replace(/[.·\-]+$/,'').trim();
+    if(c.length < 2 || c.length > 30 || !/[가-힣A-Za-z]/.test(c) || NAME_STOP.test(c)) return;
+    score[c] = (score[c]||0) + w; if(isCorp) corp[c] = true;
+  };
+  const W = '[가-힣A-Za-z0-9&][가-힣A-Za-z0-9&.·\\-]*', CO = '(?:주식회사|㈜|\\(주\\))';
+  const reField = /회사\s*명\s*[:：]\s*((?:주식회사\s*|㈜|\(주\))?[^\s:(]+(?:\s*(?:주식회사|㈜|\(주\)))?)/;
+  const reGroup = new RegExp(`${CO}\\s*(${W}?)(?:와|과)\\s*(?:그\\s*)?종속`, 'g');
+  const reBoard = new RegExp(`(${W})\\s*(?:${CO}\\s*)?(?:의\\s*)?주주\\s*(?:및|와)\\s*이사회`, 'g');
+  const rePre = new RegExp(`${CO}\\s*(${W})`, 'g'), reSuf = new RegExp(`(${W})\\s*${CO}`, 'g');
+  const fm = String(fname||'').match(/^\[([^\]]{1,30})\]/); if(fm) add(fm[1], 8, false);
+  const yr = {}, yrAt = {};
+  for(const raw of lines){
+    const s = raw.replace(/주\s*식\s*회\s*사/g, '주식회사').replace(/\s+/g, ' ');
+    const f = s.match(reField); if(f) add(f[1], 10, /주식회사|㈜|\(주\)/.test(f[1]));
+    for(const m of s.matchAll(reGroup)) add(m[1], 6, true);
+    for(const m of s.matchAll(reBoard)) add(m[1], 6, true);
+    for(const m of s.matchAll(rePre)) add(m[1], 2, true);
+    for(const m of s.matchAll(reSuf)) add(m[1], 1, true);
+    const t = s.replace(/\s+/g, '');
+    for(const m of t.matchAll(/(\d{4})(?:년|[.\-/])(\d{1,2})(?:월|[.\-/])(\d{1,2})일?\.?(?:부터|~|∼|-|–)(\d{4})(?:년|[.\-/])(\d{1,2})(?:월|[.\-/])(\d{1,2})/g)) yr[m[4]] = (yr[m[4]]||0) + 1;
+    for(const m of t.matchAll(/(\d{4})년(\d{1,2})월(\d{1,2})일현재/g)) yrAt[m[1]] = (yrAt[m[1]]||0) + 1;
+  }
+  /* '한진과', '한진의' 처럼 조사가 붙은 후보는 본래 이름으로 합침 */
+  for(const c of Object.keys(score)){
+    const m = c.match(PARTICLE_ANY); if(!m) continue;
+    const base = c.slice(0, -m[0].length);
+    if(base.length < 2 || NAME_STOP.test(base)) continue;
+    if(score[base] != null || PARTICLE_SURE.test(c)){ score[base] = (score[base]||0) + score[c]; if(corp[c]) corp[base] = true; delete score[c]; }
+  }
+  const top = o => Object.entries(o).filter(([y])=>+y>=1990 && +y<=2100).sort((a,b)=>b[1]-a[1] || +b[0]-+a[0])[0];
+  const best = Object.entries(score).sort((a,b)=>b[1]-a[1] || b[0].length-a[0].length)[0];
+  const y = top(yr) || top(yrAt);
+  return {name: best ? best[0] + (corp[best[0]] ? '(주)' : '') : '', year: y ? y[0] : ''};
+}
+const META = {name:{el:'#coName', n:'회사명', o:'회사명을'}, year:{el:'#coYear', n:'기준 연도', o:'기준 연도를'}};
+let metaHint = {};
+function setMetaAuto(kind, val, target){
+  const el = $(META[kind].el);
+  el.value = val; el.dataset.src = 'auto'; el.dataset.from = target; el.classList.add('auto');
+  metaHint[kind] = {auto:val, from:target};
+}
+/* 비어 있거나 자동 입력된 칸만 채움 — 직접 입력한 값은 덮어쓰지 않고 '적용' 제안만 표시. DART 값이 회사 자료 값보다 우선 */
+function applyMeta(meta, target){
+  for(const kind in META){
+    const el = $(META[kind].el), val = meta[kind], cur = el.value.trim();
+    if(!val){ if(!cur) metaHint[kind] = {miss:true, from:target}; continue; }
+    if(cur === val){ if(el.dataset.src !== 'user') setMetaAuto(kind, val, target); continue; }
+    const canFill = !cur || (el.dataset.src === 'auto' && (target === 'dart' || el.dataset.from !== 'dart')) || el.dataset.src === 'sample';
+    if(canFill) setMetaAuto(kind, val, target); else metaHint[kind] = {sugg:val, from:target};
+  }
+  renderMetaHint();
+}
+function renderMetaHint(){
+  const auto = Object.keys(META).filter(k=>metaHint[k] && metaHint[k].auto);
+  const out = [];
+  if(auto.length){
+    const froms = [...new Set(auto.map(k=>DS_NAME[metaHint[k].from]))].join(' · ');
+    out.push(`✓ ${froms} 파일에서 자동 입력: ${auto.map(k=>`${META[k].n} <b>${esc(metaHint[k].auto)}</b>`).join(' · ')} — 칸을 눌러 직접 고칠 수 있습니다`);
+  }
+  for(const k in META){
+    const h = metaHint[k]; if(!h) continue;
+    if(h.sugg) out.push(`${DS_NAME[h.from]} 파일에서 감지한 ${META[k].n}: <b>${esc(h.sugg)}</b><button class="btn sm metaUse" data-k="${k}">적용</button>`);
+    if(h.miss) out.push(`${META[k].o} 파일에서 찾지 못했습니다 — 직접 입력해 주세요`);
+  }
+  $('#metaHint').innerHTML = out.map(x=>`<div>${x}</div>`).join('');
+  $$('.metaUse').forEach(b=>b.onclick=()=>{ const h = metaHint[b.dataset.k]; setMetaAuto(b.dataset.k, h.sugg, h.from); renderMetaHint(); });
 }
 function parsePages(s){
   const rs = String(s||'').split(/[,\s]+/).filter(Boolean).map(x=>{ const m = x.match(/^(\d+)(?:-(\d+))?$/); return m ? [+m[1], +(m[2]||m[1])] : null; }).filter(Boolean);
@@ -1137,6 +1221,15 @@ $('#exOnlyMapped').onchange = renderExTable;
 $('#btnApply').onclick = applyExtraction;
 $('#btnTemplate').onclick = downloadTemplate;
 $('#unit').onchange = updateRecon;
+for(const kind in META){
+  const el = $(META[kind].el);
+  el.addEventListener('input', ()=>{
+    el.dataset.src = el.value.trim() ? 'user' : ''; el.classList.remove('auto');
+    const h = metaHint[kind]; if(h && (h.auto || h.miss)) delete metaHint[kind];
+    if(h && h.sugg && el.value.trim() === h.sugg) delete metaHint[kind];
+    renderMetaHint();
+  });
+}
 $$('#dsSeg button').forEach(b=>b.onclick=()=>{ state.edit = b.dataset.ds; fillForm(); });
 $$('#dashSeg button').forEach(b=>b.onclick=()=>{ if(!hasData(b.dataset.ds)) return; state.view = b.dataset.ds; renderDash(); });
 $('#btnAnalyze').onclick = ()=>{ state.view = state.edit; showView('dash'); };
@@ -1150,6 +1243,8 @@ $('#btnCopy').onclick = ()=>{
 $('#btnClear').onclick = ()=>{ if(!confirm(`${DS_NAME[state.edit]} 입력값을 모두 지울까요?`)) return; state.ds[state.edit] = newDs(); fillForm(); };
 $('#btnSample').onclick = ()=>{
   $('#coName').value = '샘플물류(주)'; $('#coYear').value = '2025'; $('#unit').value = '1000000';
+  for(const kind in META){ const el = $(META[kind].el); el.dataset.src = 'sample'; el.classList.remove('auto'); }
+  metaHint = {}; renderMetaHint();
   state.ds.dart = {v:{T_REV:850000, T_COGS:775000, T_SGA:64000, C1:300000, C2:250000, C3:68000, C4b:52000, C5a:30000,
       S1a:25000, S1b:2000, S1c:3000, S2a:12000, S3a:4000, S5:3500, S6a:2000, S6b:2000, S6c:1000, S7a:7000},
     src:{C3:{nat:true}, C4b:{nat:true}, C5a:{nat:true}}, ext:{T_GP:75000, T_OP:11000}, dir:{}};
