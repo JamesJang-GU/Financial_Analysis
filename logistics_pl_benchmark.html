@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>물류사 손익 벤치마크</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f3f5f8; --panel:#ffffff; --ink:#13233a; --muted:#5d6b7e; --faint:#8a96a6; --line:#dde3ea; --soft:#f7f9fc;
+  --navy:#0f2742; --amber:#f5a623; --amber-soft:#fff4df; --amber-ink:#3b2600;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+  --cost:#9aa7b8; --band:#e3e8ef; --grid:#e8ecf1; --axis:#c3cad4;
+  --good:#0ca30c; --good-ink:#006300; --serious:#ec835a; --critical:#d03b3b; --crit-ink:#b42323;
+  --shadow:0 6px 24px rgba(15,39,66,.10);
+  --hi-bg:#fde6dd; --hi-ink:#9a3412; --ok-bg:#e9eef5; --ok-ink:#33475f; --lo-bg:#e3f5e3; --lo-ink:#1d5e1d; --na-bg:#f1f3f6; --na-ink:#6b7785; --hold-bg:#fff1d6; --hold-ink:#7a4b00;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme:dark;
+    --bg:#0d1117; --panel:#161b22; --ink:#e8edf3; --muted:#a9b4c2; --faint:#7d8896; --line:#2a323d; --soft:#1b222b;
+    --navy:#0b1d33; --amber-soft:#3a2a0c;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+    --cost:#5d6a7a; --band:#26303b; --grid:#222a33; --axis:#3a4450;
+    --good-ink:#0ca30c; --crit-ink:#e66767; --shadow:0 6px 24px rgba(0,0,0,.35);
+    --hi-bg:#4a2417; --hi-ink:#ffb393; --ok-bg:#26303b; --ok-ink:#c4cfdc; --lo-bg:#173a17; --lo-ink:#8fdc8f; --na-bg:#20262e; --na-ink:#8e99a6; --hold-bg:#3a2a0c; --hold-ink:#ffd58a;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0d1117; --panel:#161b22; --ink:#e8edf3; --muted:#a9b4c2; --faint:#7d8896; --line:#2a323d; --soft:#1b222b;
+  --navy:#0b1d33; --amber-soft:#3a2a0c;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+  --cost:#5d6a7a; --band:#26303b; --grid:#222a33; --axis:#3a4450;
+  --good-ink:#0ca30c; --crit-ink:#e66767; --shadow:0 6px 24px rgba(0,0,0,.35);
+  --hi-bg:#4a2417; --hi-ink:#ffb393; --ok-bg:#26303b; --ok-ink:#c4cfdc; --lo-bg:#173a17; --lo-ink:#8fdc8f; --na-bg:#20262e; --na-ink:#8e99a6; --hold-bg:#3a2a0c; --hold-ink:#ffd58a;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Noto Sans KR',system-ui,sans-serif;font-size:15px;line-height:1.55}
+header{background:var(--navy);color:#fff;padding:18px 28px 14px}
+header h1{margin:0;font-size:24px;font-weight:900;letter-spacing:-.3px}
+header p{margin:4px 0 0;color:#b9c6d8;font-size:13.5px}
+.wrap{max-width:1320px;margin:0 auto;padding:18px 20px 48px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tab{border:1px solid var(--line);background:var(--panel);padding:10px 18px;border-radius:10px;cursor:pointer;font:inherit;font-weight:700;color:var(--muted)}
+.tab:hover{color:var(--ink)}
+.tab.on{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:var(--shadow)}
+.tab .k{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:6px;background:var(--amber);color:var(--amber-ink);vertical-align:1px}
+.view{display:none}.view.on{display:block}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g6{grid-template-columns:repeat(6,1fr)}
+@media (max-width:1100px){.g6{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:980px){.g2,.g3{grid-template-columns:1fr}.g6{grid-template-columns:repeat(2,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:16px 18px;min-width:0}
+.ph{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:16px;font-weight:900;flex-wrap:wrap}
+.ph .tag{font-size:11px;font-weight:700;background:var(--amber);color:var(--amber-ink);border-radius:20px;padding:1px 9px}
+.ph small{font-weight:500;color:var(--muted);font-size:12.5px;margin-left:auto}
+.note{font-size:12.5px;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:7px 14px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+.btn.amber{background:var(--amber);color:var(--amber-ink);border-color:var(--amber)}
+.btn.sm{padding:4px 10px;font-size:12.5px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--muted);font-weight:500}
+input[type=text],input[type=number],select{font:inherit;font-size:14px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px 9px}
+input:focus,select:focus{outline:2px solid var(--amber);outline-offset:0;border-color:var(--amber)}
+.drop{border:2px dashed var(--axis);border-radius:12px;padding:20px 14px;text-align:center;cursor:pointer;background:var(--soft);transition:.15s}
+.drop:hover,.drop.over{border-color:var(--amber);background:var(--amber-soft)}
+.drop b{font-size:14.5px}.drop .note{margin-top:4px}
+.status{margin-top:8px;font-size:13px;min-height:20px}
+.status.err{color:var(--crit-ink)}
+.seg{display:inline-flex;gap:3px;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg button{border:0;background:transparent;font:inherit;font-size:13.5px;font-weight:700;padding:5px 14px;border-radius:7px;cursor:pointer;color:var(--muted)}
+.seg button.on{background:var(--navy);color:#fff}
+.seg button .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint);margin-left:6px;vertical-align:1px}
+.seg button .dot.has{background:var(--good)}
+table.t{border-collapse:collapse;width:100%;font-size:13.5px}
+table.t th,table.t td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:middle}
+table.t th{font-size:12px;color:var(--muted);font-weight:700;background:var(--soft);position:sticky;top:0;z-index:1}
+table.t td.n,table.t th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.t tr.grp td{background:var(--soft);font-weight:900}
+table.t tr.l2 td{font-weight:700}
+table.t tr.l3 td:first-child{padding-left:26px;color:var(--muted)}
+table.t tr.tot td{font-weight:900;border-top:2px solid var(--axis)}
+table.t tr.off td{opacity:.45}
+table.t input[type=number]{width:128px;text-align:right;padding:4px 7px}
+table.t select.dir{font-size:12px;padding:2px 4px}
+.scroll{max-height:460px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;border-radius:20px;padding:1px 9px;white-space:nowrap}
+.st-high{background:var(--hi-bg);color:var(--hi-ink)}.st-ok{background:var(--ok-bg);color:var(--ok-ink)}.st-low{background:var(--lo-bg);color:var(--lo-ink)}
+.st-na{background:var(--na-bg);color:var(--na-ink)}.st-hold{background:var(--hold-bg);color:var(--hold-ink)}
+.ds{font-size:12px;color:var(--muted);white-space:nowrap}
+.ds b{color:var(--ink);font-weight:700}
+.kpi .lbl{font-size:12.5px;color:var(--muted);font-weight:700}
+.kpi .val{font-size:24px;font-weight:900;letter-spacing:-.5px;margin-top:2px}
+.kpi .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.up-bad{color:var(--crit-ink);font-weight:700}.up-good{color:var(--good-ink);font-weight:700}
+.insight{border-left:4px solid var(--amber);background:var(--amber-soft);border-radius:0 10px 10px 0;padding:12px 16px}
+.insight h3{margin:0 0 6px;font-size:15px}
+.insight ol,.insight ul{margin:4px 0;padding-left:20px}.insight li{margin:3px 0}
+.insight .sec{font-weight:900;font-size:13px;margin-top:8px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:8px}
+.legend i{display:inline-block;vertical-align:-2px;margin-right:5px}
+svg text{font-family:'Noto Sans KR',system-ui,sans-serif}
+.tip{position:fixed;z-index:50;max-width:360px;background:#0f2742;color:#e8eef6;border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.6;box-shadow:0 12px 36px rgba(0,0,0,.28);pointer-events:none;opacity:0;transition:opacity .1s}
+.tip.show{opacity:1}.tip b{color:#ffd58a}
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+.mixbar{display:flex;height:26px;border-radius:6px;overflow:hidden;gap:2px;background:var(--panel)}
+.mixbar div{height:100%;min-width:2px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11.5px;font-weight:700;overflow:hidden;white-space:nowrap}
+.chk{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.step{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--navy);color:#fff;font-size:12px;font-weight:900}
+.cov{font-size:12.5px;color:var(--muted);background:var(--soft);border:1px solid var(--line);border-radius:20px;padding:3px 12px}
+.cov b{color:var(--ink)}
+.tog{cursor:pointer;user-select:none;color:var(--muted);display:inline-block;width:16px}
+.foot{margin-top:18px;font-size:12px;color:var(--faint)}
+</style>
+</head>
+<body>
+<header>
+  <h1>물류사 손익구조 벤치마크</h1>
+  <p>1단계 DART 공시로 기초 분석 → 2단계 회사 제공 자료로 전 비용 항목 상세 분석 · 업로드 파일은 브라우저 안에서만 처리되며 외부로 전송되지 않습니다</p>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab on" data-v="input"><span class="k">1</span>데이터 입력</button>
+    <button class="tab" data-v="dash"><span class="k">2</span>분석 대시보드</button>
+    <button class="tab" data-v="bench"><span class="k">3</span>업계 기준 · 매핑 사전</button>
+  </div>
+
+  <!-- ① 데이터 입력 -->
+  <section class="view on" id="v-input">
+    <div class="grid g3">
+      <div class="panel">
+        <div class="ph"><span class="step">1</span>DART 공시 자료 <small>기초 분석</small></div>
+        <div class="drop" data-target="dart">
+          <b>DART 감사보고서 PDF 업로드</b>
+          <div class="note">손익계산서 + 판관비 주석 + 비용의 성격별 분류 주석을 자동 인식<br>(엑셀로 받은 재무제표도 가능)</div>
+        </div>
+        <div class="status" id="st-dart"></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><span class="step">2</span>회사 제공 자료 <small>상세 분석</small></div>
+        <div class="drop" data-target="co">
+          <b>관리손익 · 원가명세 엑셀 업로드</b>
+          <div class="note">xlsx · xls · csv · pdf — 계정명 자동 매핑<br>또는 아래 입력표에 직접 입력</div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn sm" id="btnTemplate">표준 입력 양식(엑셀) 다운로드</button>
+          <span class="note">양식의 코드 열을 쓰면 100% 정확히 매핑됩니다</span>
+        </div>
+        <div class="status" id="st-co"></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><span class="tag">기본 정보</span>대상 회사</div>
+        <div class="row">
+          <label class="f">회사명<input type="text" id="coName" placeholder="예: OO로지스틱스" style="width:170px"></label>
+          <label class="f">기준 연도<input type="text" id="coYear" placeholder="2025" style="width:80px"></label>
+          <label class="f">금액 단위<select id="unit">
+            <option value="1">원</option><option value="1000">천원</option>
+            <option value="1000000" selected>백만원</option><option value="100000000">억원</option>
+          </select></label>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn sm" id="btnSample">샘플 데이터 (DART + 회사)</button>
+        </div>
+        <p class="note" style="margin:10px 0 0">업로드 → 매핑 검토 → 입력표 반영 순서로 진행됩니다. 입력표에서 언제든 수정할 수 있습니다.</p>
+      </div>
+    </div>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv,.pdf" hidden>
+
+    <div class="panel" id="extractPanel" style="margin-top:14px;display:none">
+      <div class="ph"><span class="tag">추출 결과</span>계정 매핑 검토 → <span id="exTarget"></span><small id="exSummary"></small></div>
+      <div class="row" style="margin-bottom:10px;align-items:flex-end">
+        <label class="f" id="sheetWrap">시트<select id="exSheet"></select></label>
+        <label class="f">금액 열 (당기 선택)<select id="exCol"></select></label>
+        <label class="f">파일 단위 (자동 감지)<select id="exUnit">
+          <option value="1">원</option><option value="1000">천원</option>
+          <option value="1000000">백만원</option><option value="100000000">억원</option>
+        </select></label>
+        <label class="f" id="pageWrap">페이지 범위 (예: 5-7, 40-44)<input type="text" id="exPages" placeholder="전체" style="width:170px"></label>
+        <label class="chk"><input type="checkbox" id="exOnlyMapped" checked>매핑된 행만 보기</label>
+        <span style="flex:1"></span>
+        <button class="btn amber" id="btnApply">입력표에 반영 →</button>
+      </div>
+      <div class="scroll"><table class="t" id="exTable"></table></div>
+      <p class="note" style="margin:8px 0 0">합계 행(매출액 · 매출원가 · 판관비 · 영업이익)과 '성격별 분류' 제목을 기준으로 구간을 자동 판별합니다. 성격별 분류(원가+판관 합산) 금액은 판관비 내역을 차감해 매출원가 몫으로 역산합니다. '급여 및 복리후생비'처럼 합쳐진 계정은 '합산 공시'로 표시됩니다.</p>
+    </div>
+
+    <div class="panel" style="margin-top:14px">
+      <div class="ph"><span class="tag">입력표</span>
+        <div class="seg" id="dsSeg"><button data-ds="dart" class="on">① DART 공시<span class="dot"></span></button><button data-ds="co">② 회사 제공<span class="dot"></span></button></div>
+        <small>L2 행의 입력칸 = 세부 구분 없이 공시된 금액 · 합계를 입력하면 차액은 '미구분'으로 표시</small>
+      </div>
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn sm" id="btnCopy">DART 값을 회사 자료로 복사</button>
+        <button class="btn sm" id="btnClear">이 데이터 초기화</button>
+      </div>
+      <div class="grid g3" id="formGrid"></div>
+      <div class="row" style="margin-top:14px">
+        <div class="status" id="recon" style="flex:1;margin:0"></div>
+        <button class="btn primary" id="btnAnalyze">분석 대시보드 보기 →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ② 대시보드 -->
+  <section class="view" id="v-dash">
+    <div id="dashEmpty" class="panel empty">입력된 데이터가 없습니다. <b>① 데이터 입력</b>에서 DART PDF를 업로드하거나 값을 입력하세요.</div>
+    <div id="dashBody" style="display:none">
+      <div class="row" style="margin-bottom:12px">
+        <div style="font-size:18px;font-weight:900" id="dTitle"></div>
+        <div class="seg" id="dashSeg"><button data-ds="dart">DART 기초 분석</button><button data-ds="co">회사 상세 분석</button></div>
+        <span class="cov" id="coverage"></span>
+        <span style="flex:1"></span>
+        <label class="f" style="flex-direction:row;align-items:center;gap:8px">비교 기준
+          <select id="basis"><option value="rev">매출액 대비 %</option><option value="gp">매출총이익 대비 %</option></select></label>
+      </div>
+      <div class="grid g6" id="kpis"></div>
+      <div class="insight" style="margin-top:14px" id="insight"></div>
+      <div class="grid g2" style="margin-top:14px">
+        <div class="panel">
+          <div class="ph"><span class="tag">차이</span>영업이익률 차이 분해<small>업계 중앙값 → 회사 (%p)</small></div>
+          <div id="bridge"></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><span class="tag">직접 · 간접</span>직접비 · 간접비 구조<small>매출액 = 100</small></div>
+          <div id="dirind"></div>
+        </div>
+      </div>
+      <div class="grid g2" style="margin-top:14px">
+        <div class="panel">
+          <div class="ph"><span class="tag">손익</span>손익 흐름 (매출액 = 100)<small>◆ 업계 중앙값</small></div>
+          <div id="wf"></div>
+        </div>
+        <div class="panel">
+          <div class="ph"><span class="tag">매출</span>매출 구성 vs 업계</div>
+          <div id="mix"></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <div class="ph"><span class="tag">비교</span>비용 항목별 업계 분포 비교 (L2)<small id="cmpBasis"></small></div>
+        <div id="cmp"></div>
+        <div class="legend">
+          <span><i style="width:22px;height:10px;background:var(--band);border-radius:3px"></i>업계 하위25%~상위25%</span>
+          <span><i style="width:2px;height:12px;background:var(--muted)"></i>업계 중앙값 (=100)</span>
+          <span><i style="width:10px;height:10px;border-radius:50%;background:var(--s1)"></i>대상 회사</span>
+          <span><span class="pill st-high">▲ 과다</span> 상위25% 초과</span>
+          <span><span class="pill st-ok">● 적정</span></span>
+          <span><span class="pill st-low">▼ 낮음</span> 하위25% 미만</span>
+          <span><span class="pill st-hold">◐ 보류</span> 미구분 금액 때문에 과소 가능</span>
+          <span><span class="pill st-na">○ 판정 불가</span> 데이터 없음 · 통합 공시</span>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <div class="ph"><span class="tag">상세</span>계정 트리별 상세 분석 (L1 → L2 → L3)
+          <small><button class="btn sm" id="btnExpand">세부(L3) 모두 펼치기</button></small></div>
+        <div class="scroll" style="max-height:none"><table class="t" id="detail"></table></div>
+      </div>
+      <div class="panel" style="margin-top:14px;display:none" id="reconPanel">
+        <div class="ph"><span class="tag">대사</span>DART 공시 vs 회사 제공 자료<small>차이율 1% 초과는 확인 필요</small></div>
+        <div class="scroll" style="max-height:none"><table class="t" id="reconTable"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ③ 업계 기준 · 매핑 -->
+  <section class="view" id="v-bench">
+    <div class="panel">
+      <div class="ph"><span class="tag">업계 분포</span>국내 물류사 공용 벤치마크<small id="benchSrc"></small></div>
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn" id="bReset">기본값 복원</button>
+        <button class="btn" id="bExport">JSON 내보내기</button>
+        <button class="btn" id="bImport">JSON 불러오기</button>
+        <input type="file" id="bFile" accept=".json" hidden>
+        <span class="note">L2는 매출액 대비 % 분포, L3는 상위 항목 안의 구성비(%)로 관리합니다. 수정값은 이 브라우저에 저장됩니다.</span>
+      </div>
+      <div class="scroll" style="max-height:none"><table class="t" id="benchTable"></table></div>
+      <p class="note" style="margin:8px 0 0">⚠ 기본값은 국내 상장 물류사(종합물류 · 포워딩 · 계약물류 혼합)의 공시 구조를 바탕으로 한 <b>예시 분포</b>입니다. 실제 분석 전 DART 공시 기반 비교군 수치로 교체하세요.</p>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <div class="ph"><span class="tag">매핑</span>계정명 → 표준 항목 매핑 사전<small>위에서부터 먼저 일치하는 규칙 적용</small></div>
+      <div class="scroll"><table class="t" id="dictTable"></table></div>
+    </div>
+  </section>
+  <div class="foot">물류사 손익 벤치마크 · 공용 템플릿 v2</div>
+</div>
+<div class="tip" id="tip"></div>
+<script>
+'use strict';
+/* ═════════ 1. 표준 계정 트리 (L1 그룹 → L2 항목 → L3 세부) ═════════
+   dir: D 직접비 / I 간접비 (기본값, 입력표에서 회사별 변경 가능)
+   L3 [코드, 이름, 업계 기본 구성비(상위 항목 안 %)] */
+const GROUPS = [
+  {id:'rev', n:'매출액', total:'T_REV', un:'R_UN', items:[
+    {k:'R1', n:'운송 · 운임 매출', d:'해상·항공·육상운송, 포워딩, 택배'},
+    {k:'R2', n:'보관 · 하역 · W&D 매출', d:'보관료, 입출고 하역, 풀필먼트, 유통가공'},
+    {k:'R3', n:'통관 · 부대서비스 매출', d:'통관 대행, 부대비용, 대행수수료'},
+    {k:'R4', n:'기타 매출', d:'상품매출, 임대수익 등'}]},
+  {id:'cogs', n:'매출원가', total:'T_COGS', un:'C_UN', items:[
+    {k:'C1', n:'지급운임 · 운송비', dir:'D', d:'외부 운송사에 지급한 운임', kids:[['C1a','해상운임',40],['C1b','항공운임',20],['C1c','육상 · 내륙운송비',30],['C1d','택배 · 배송비',10]]},
+    {k:'C2', n:'외주용역 · 하역비', dir:'D', d:'도급·하역·통관 등 외주 용역', kids:[['C2a','하역 · 작업비',45],['C2b','도급 · 파견 용역비',40],['C2c','통관 · 대행 수수료',15]]},
+    {k:'C3', n:'인건비 (원가)', dir:'D', d:'현장 직접 인력', kids:[['C3a','급여 · 임금',78],['C3b','퇴직급여',8],['C3c','복리후생비',14]]},
+    {k:'C4', n:'임차 · 보관비 (점유비용)', dir:'D', d:'창고·장비 임차, 리스, 보관료', kids:[['C4a','임차료 · 장비렌탈',45],['C4b','사용권자산상각비',40],['C4c','보관료 · 창고료',15]]},
+    {k:'C5', n:'감가상각비 (원가)', dir:'I', d:'자가 창고·장비·차량 상각', kids:[['C5a','유형자산 감가상각비',90],['C5b','무형자산상각비',10]]},
+    {k:'C6', n:'유류 · 차량비', dir:'D', d:'자차 운영비', kids:[['C6a','유류비',65],['C6b','차량유지 · 수리비',25],['C6c','통행료 · 주차비',10]]},
+    {k:'C7', n:'기타 원가', dir:'I', d:'현장 운영 경비', kids:[['C7a','수도광열 · 전력비',25],['C7b','보험료',15],['C7c','수선 · 유지비',20],['C7d','소모품 · 포장재비',25],['C7e','세금과공과',15]]}]},
+  {id:'sga', n:'판매비와관리비', total:'T_SGA', un:'S_UN', items:[
+    {k:'S1', n:'인건비 (판관)', dir:'I', d:'영업·관리 인력', kids:[['S1a','급여',78],['S1b','퇴직급여',8],['S1c','복리후생비',14]]},
+    {k:'S2', n:'지급수수료 · IT', dir:'I', d:'외부 수수료, 전산', kids:[['S2a','지급수수료',70],['S2b','전산 · IT비',30]]},
+    {k:'S3', n:'감가상각비 (판관)', dir:'I', d:'본사 자산 상각', kids:[['S3a','유형자산 감가상각비',70],['S3b','무형자산상각비',30]]},
+    {k:'S4', n:'임차료 (판관)', dir:'I', d:'사무실 임차', kids:[['S4a','임차료',50],['S4b','사용권자산상각비',50]]},
+    {k:'S5', n:'대손상각비', dir:'I', d:'매출채권 손상', kids:[]},
+    {k:'S6', n:'영업활동비', dir:'I', d:'광고·접대·출장', kids:[['S6a','광고선전 · 판촉비',35],['S6b','접대비 (기업업무추진비)',35],['S6c','여비교통비',30]]},
+    {k:'S7', n:'기타 판관비', dir:'I', d:'세금과공과, 통신 등', kids:[['S7a','세금과공과',30],['S7b','통신비',10],['S7c','교육훈련 · 도서비',10],['S7d','보험료',10],['S7e','수도광열 · 소모품',20]]}]}
+];
+const NODE = {}; const GRP = {};
+GROUPS.forEach(g=>{ GRP[g.id] = g; g.items.forEach(it=>{
+  NODE[it.k] = {k:it.k, n:it.n, d:it.d||'', g:g.id, lvl:2, dir:it.dir||null, kids:(it.kids||[]).map(x=>x[0])};
+  (it.kids||[]).forEach(([k,n,sh])=>{ NODE[k] = {k, n, g:g.id, lvl:3, parent:it.k, share:sh, kids:[]}; });
+});});
+const L2 = gid => GRP[gid].items.map(i=>i.k);
+const COST_L2 = [...L2('cogs'), ...L2('sga')];
+const TOTAL_NAME = {T_REV:'매출액(합계)', T_COGS:'매출원가(합계)', T_GP:'매출총이익', T_SGA:'판관비(합계)', T_OP:'영업이익'};
+const nameOf = k => NODE[k] ? NODE[k].n : (TOTAL_NAME[k] || k);
+const fullName = k => { const nd = NODE[k]; if(!nd) return nameOf(k); return nd.lvl===3 ? `${NODE[nd.parent].n} › ${nd.n}` : nd.n; };
+
+/* ═════════ 2. 업계 분포 기본값 (예시 · 검증 필요) ═════════ */
+const BENCH_DEFAULT = {
+  source:'예시 분포 — 국내 상장 물류사 공시 구조 기반 근사치 (검증 필요)',
+  items:{ /* 매출액 대비 % [하위25, 중앙, 상위25] */
+    C1:[30,42,55], C2:[12,20,28], C3:[5,9,13], C4:[2.5,5,8], C5:[2,4,6], C6:[1,3,5], C7:[3,6,8],
+    S1:[2,3.2,4.5], S2:[0.5,1.0,1.6], S3:[0.2,0.5,0.9], S4:[0.1,0.3,0.6], S5:[0.05,0.2,0.4], S6:[0.2,0.5,0.9], S7:[0.4,0.8,1.3],
+    R1:[45,60,75], R2:[10,25,40], R3:[3,8,12], R4:[2,7,12],
+    GPM:[8,11,15], SGA:[4.5,6.5,8.5], OPM:[2,4.5,6.5], EBITDA:[6,9,13], LABOR:[8,12,17], DA:[2.5,4.5,7]
+  },
+  share:{} /* L3 구성비 수정값 (없으면 트리 기본값) */
+};
+const LS_KEY = 'logi-pl-bench-v2';
+let BENCH = loadBench();
+function loadBench(){
+  try{ const s = localStorage.getItem(LS_KEY); if(s){ const o = JSON.parse(s); if(o && o.items) return {share:{}, ...o, items:{...BENCH_DEFAULT.items, ...o.items}}; } }catch(e){}
+  return JSON.parse(JSON.stringify(BENCH_DEFAULT));
+}
+function saveBench(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(BENCH)); }catch(e){} }
+const shareOf = k => (BENCH.share && BENCH.share[k]!=null) ? +BENCH.share[k] : NODE[k].share;
+/* 항목별 업계 분포 (매출액 대비 %). L3 = 상위 L2 분포 × 구성비 */
+function bench(k){
+  const nd = NODE[k];
+  if(nd && nd.lvl===3){ const s = shareOf(k)/100; return bench(nd.parent).map(x=>x*s); }
+  return (BENCH.items[k]||[NaN,NaN,NaN]).map(Number);
+}
+
+/* ═════════ 3. 계정명 매핑 규칙 ═════════ */
+const TOTALS = [
+  {k:'T_REV',  re:/^(매출액|매출|영업수익|매출수익|수익\(매출액\)|revenue|sales|netsales)$/i, sec:'rev'},
+  {k:'T_COGS', re:/^(매출원가|영업원가|운송원가|용역원가|costofsales)$/i, sec:'cogs'},
+  {k:'T_GP',   re:/^(매출총이익|매출총손실|매출총이익\(손실\)|매출총손익|grossprofit)$/i, sec:'none'},
+  {k:'T_SGA',  re:/^(판매비와관리비|판매비및관리비|판매관리비|판관비|sg&a)$/i, sec:'sga'},
+  {k:'T_OP',   re:/^(영업이익|영업손실|영업이익\(손실\)|영업손익|operatingprofit|operatingincome)$/i, sec:'after'}
+];
+const REV_RULES = [
+  [/보관|창고|하역|센터|풀필먼트|W&D|CFS|3PL|계약물류|유통가공/i,'R2'],
+  [/통관|부대|대행|수수료/,'R3'],
+  [/운송|운임|해상|항공|포워딩|택배|육상|해운|국제|수송|트럭|물류/,'R1'],
+  [/기타|상품|임대|용역|제품/,'R4']
+];
+const COGS_RULES = [
+  [/대손/,'S5'],
+  [/사용권자산/,'C4b'], [/무형자산상각|소프트웨어상각/,'C5b'], [/감가상각/,'C5a'],
+  [/퇴직/,'C3b'], [/복리후생|사회보험|4대보험/,'C3c'], [/종업원급여|인건비|노무비/,'C3'], [/급여|임금|상여|잡급|제수당/,'C3a'],
+  [/보관료|창고료|CFS/i,'C4c'], [/임차료|리스료|지급임차|렌탈|렌트/,'C4a'],
+  [/해상운임|선박운임|용선|해운/,'C1a'], [/항공운임|항공화물|항공/,'C1b'], [/택배|배송|라스트마일|퀵/,'C1d'],
+  [/육상|내륙|트럭|화물자동차|간선|셔틀|트레일러/,'C1c'], [/지급운임|매입운임|운임|운송비|운반비|물류비/,'C1'],
+  [/통관|관세사/,'C2c'], [/하역|상하차|작업비|검수|검품|피킹/,'C2a'], [/도급|파견|아웃소싱|인력/,'C2b'], [/외주|용역/,'C2'],
+  [/유류|연료|주유/,'C6a'], [/차량유지|차량수리|차량비|타이어|정비/,'C6b'], [/통행료|주차|도로/,'C6c'],
+  [/수도광열|전력|전기료|가스|난방/,'C7a'], [/보험료/,'C7b'], [/수선|유지보수|수리비/,'C7c'], [/소모품|포장|부자재|자재/,'C7d'], [/세금|공과/,'C7e'],
+  [/수수료|전산|정보시스템|IT|소프트웨어|클라우드|컨설팅|광고|선전|접대|기업업무추진|여비|교통|통신|도서|교육|훈련|기타|잡비/,'C7']
+];
+const SGA_RULES = [
+  [/대손/,'S5'],
+  [/사용권자산/,'S4b'], [/무형자산상각|소프트웨어상각/,'S3b'], [/감가상각/,'S3a'],
+  [/퇴직/,'S1b'], [/복리후생|사회보험|4대보험/,'S1c'], [/종업원급여|인건비/,'S1'], [/급여|임금|상여|잡급|제수당/,'S1a'],
+  [/임차료|리스료|지급임차|렌탈/,'S4a'],
+  [/전산|정보시스템|IT|소프트웨어|클라우드/,'S2b'], [/수수료|용역|컨설팅|법률|감사|자문/,'S2a'],
+  [/광고|선전|판매촉진|판촉|견본/,'S6a'], [/접대|기업업무추진/,'S6b'], [/여비|교통|출장|회의/,'S6c'],
+  [/세금|공과/,'S7a'], [/통신/,'S7b'], [/교육|훈련|도서|연구/,'S7c'], [/보험료/,'S7d'], [/수도광열|전력|소모품|사무용품|수선|차량|유류/,'S7e'],
+  [/운반|운임|보관|포장|기타|잡비/,'S7']
+];
+const SKIP_RE = /^(합계|소계|계|총계)$/;
+const AFTER_RE = /^(영업외|기타수익|기타비용|금융수익|금융비용|금융원가|법인세|당기순|계속영업|지분법)/;
+const NOTE_TOK = /^(\(?주석?\)?)?\d{1,2}(,\d{1,2})+$|^\(?주석?\d{1,2}(,\d{1,2})*\)?$/;
+const HEADER_RE = /성격별|^(판매비와관리비|판매비및관리비|판관비|매출원가|용역원가|운송원가)/;
+const CODE_RE =/^(T_REV|T_COGS|T_SGA|[RCS]\d[a-e]?)$/;
+
+function normLabel(s){
+  return String(s||'')
+    .replace(/\s+/g,'')
+    .replace(/\((주석|주)[\d,.\-~]*\)/g,'')
+    .replace(/^[\(\[]?([ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]+|[IVX]+|\d{1,2}|[가나다라마바사아자차카타파하])[\.\)\]]/,'')
+    .replace(/^[\-·•※*]+/,'')
+    .replace(/[:：]$/,'')
+    .replace(/([가-힣)])(주석)?\d{1,2}(,\d{1,2})*$/,'$1');
+}
+/* 표준 이름 정확 일치 (L3는 이름이 그룹 간 중복되므로 'L2 › L3' 전체 이름만) */
+const NAME2KEY = {}; Object.values(NODE).forEach(nd=>{ NAME2KEY[normLabel(fullName(nd.k))] = nd.k; });
+function parseNum(v){
+  if(typeof v==='number') return isFinite(v)?v:null;
+  if(v==null) return null;
+  let s = String(v).replace(/\s+/g,'');
+  if(!s) return null;
+  if(/^[-–—]$/.test(s)) return 0;
+  let neg = false;
+  if(/^\(.*\)$/.test(s)){neg=true;s=s.slice(1,-1);}
+  if(/^[△▲\-–]/.test(s)){neg=true;s=s.slice(1);}
+  if(s.includes(',') && !/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) return null;
+  s = s.replace(/,/g,'');
+  if(!/^\d+(\.\d+)?$/.test(s)) return null;
+  const n = parseFloat(s);
+  return neg?-n:n;
+}
+const ruleMatch = (s, rules) => { for(const [re,k] of rules) if(re.test(s)) return k; return null; };
+/* 비용 계정 매핑: '급여및복리후생비' 같은 합산 계정은 구성요소별로 판별해 merged로 표시 */
+function matchCost(n, rules){
+  const parts = n.split(/및|,|ㆍ|\/|&|\+/).filter(Boolean);
+  if(parts.length > 1){
+    const keys = [...new Set(parts.map(p=>ruleMatch(p, rules)).filter(Boolean))];
+    if(keys.length > 1){
+      const l2s = [...new Set(keys.map(k=>NODE[k].lvl===3 ? NODE[k].parent : k))];
+      if(l2s.length===1) return {key:l2s[0], merged:keys};
+      return {key:keys[0], merged:keys};
+    }
+    if(keys.length===1) return {key:keys[0]};
+  }
+  const k = ruleMatch(n, rules);
+  return k ? {key:k} : {key:null};
+}
+/* 한 계정명을 구간 정보와 함께 표준 항목으로 매핑 */
+function classify(label, section){
+  const n = normLabel(label);
+  if(!n || SKIP_RE.test(n)) return {key:null, section};
+  for(const t of TOTALS) if(t.re.test(n)) return {key:t.k, section:t.sec, total:true};
+  if(/성격별/.test(n)) return {key:null, section:'nat'};
+  if(/^(판매비와관리비|판매비및관리비|판관비)(의)?(내역|명세|구성)/.test(n)) return {key:null, section:'sga'};
+  if(/^(매출원가|용역원가|운송원가)(의)?(내역|명세|구성)/.test(n)) return {key:null, section:'cogs'};
+  if(AFTER_RE.test(n)) return {key:null, section:'after'};
+  if(section==='after') return {key:null, section};
+  if(NAME2KEY[n]) return {key:NAME2KEY[n], section};
+  if(section==='rev') return {key:ruleMatch(n, REV_RULES)||'R4', section};
+  const r = matchCost(n, section==='sga' ? SGA_RULES : COGS_RULES);
+  if(section==='nat' && r.key){ r.sgaKey = matchCost(n, SGA_RULES).key; }
+  return {...r, section};
+}
+/* ═════════ 4. 상태 · 계산 ═════════ */
+const $ = s=>document.querySelector(s);
+const $$ = s=>[...document.querySelectorAll(s)];
+const UNIT_NAME = {1:'원',1000:'천원',1000000:'백만원',100000000:'억원'};
+const DS_NAME = {dart:'DART 공시', co:'회사 제공 자료'};
+const newDs = () => ({v:{}, src:{}, ext:{}, dir:{}});
+const state = {ds:{dart:newDs(), co:newDs()}, edit:'dart', view:null};
+const fmt = (n,d=0)=> (n==null||isNaN(n))?'–':n.toLocaleString('ko-KR',{maximumFractionDigits:d,minimumFractionDigits:d});
+const pct = (n,d=1)=> (n==null||isNaN(n)||!isFinite(n))?'–':n.toFixed(d)+'%';
+const pp = n => { if(n==null||isNaN(n)) return '–'; const d = Math.round(n*10)/10 || 0; return (d>0?'+':'')+d.toFixed(1)+'%p'; };
+const esc = s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const unitName = () => UNIT_NAME[$('#unit').value];
+const hasData = id => { const v = state.ds[id].v; return Object.keys(v).some(k=>v[k]); };
+const dirOf = (id, k) => state.ds[id].dir[k] || NODE[k].dir;
+
+function compute(id){
+  const D = state.ds[id], v = D.v, amt = {}, own = {}, kidsSum = {}, grp = {};
+  for(const g of GROUPS){
+    let sumD = 0;
+    for(const it of g.items){
+      const k = it.k; own[k] = +v[k]||0; kidsSum[k] = 0;
+      NODE[k].kids.forEach(c=>{ amt[c] = +v[c]||0; kidsSum[k] += amt[c]; });
+      amt[k] = own[k] + kidsSum[k]; sumD += amt[k];
+    }
+    const hasTotal = v[g.total]!=null && v[g.total]!==0;
+    const total = hasTotal ? +v[g.total] : sumD;
+    const un = total - sumD;
+    amt[g.un] = Math.max(0, un);
+    grp[g.id] = {total, sumD, un, hasTotal};
+  }
+  const rev = grp.rev.total, cogs = grp.cogs.total, sga = grp.sga.total, gp = rev - cogs, op = gp - sga;
+  const da = amt.C5 + amt.S3, labor = amt.C3 + amt.S1, ebitda = op + da;
+  let direct = 0, siteOH = 0, hqOH = 0;
+  COST_L2.forEach(k=>{ const a = amt[k]; if(dirOf(id,k)==='D') direct += a; else if(NODE[k].g==='cogs') siteOH += a; else hqOH += a; });
+  hqOH += amt.S_UN; const unCls = amt.C_UN;
+  const p = x => rev ? x/rev*100 : NaN;
+  const agg = {GPM:p(gp), SGA:p(sga), OPM:p(op), EBITDA:p(ebitda), LABOR:p(labor), DA:p(da),
+    DIRECT:p(direct), SITE:p(siteOH), HQ:p(hqOH), UNCLS:p(unCls), CM:p(rev-direct), OHR: direct ? (siteOH+hqOH)/direct*100 : NaN};
+  const costTot = cogs + sga, classified = COST_L2.reduce((s,k)=>s+amt[k],0);
+  const l3Base = COST_L2.filter(k=>NODE[k].kids.length).reduce((s,k)=>s+amt[k],0);
+  const l3Done = COST_L2.filter(k=>NODE[k].kids.length).reduce((s,k)=>s+kidsSum[k],0);
+  const cov = {l2: costTot ? classified/costTot*100 : 0, l3: l3Base ? l3Done/l3Base*100 : 0};
+  return {id, amt, own, kidsSum, grp, rev, cogs, sga, gp, op, da, labor, ebitda, direct, siteOH, hqOH, unCls, agg, cov, p};
+}
+/* 업계 직접/간접 분포: 회사와 같은 직·간접 분류 기준으로 L2 분포를 합산
+   (항목별 분위수를 그대로 더하면 범위가 과대해지므로 폭을 30%로 축소한 근사) */
+function benchDir(id){
+  const acc = {DIRECT:[0,0,0], SITE:[0,0,0], HQ:[0,0,0]};
+  COST_L2.forEach(k=>{ const b = bench(k), t = dirOf(id,k)==='D' ? 'DIRECT' : (NODE[k].g==='cogs' ? 'SITE' : 'HQ'); b.forEach((x,i)=>acc[t][i]+=x); });
+  const tight = a => [a[1]-(a[1]-a[0])*.3, a[1], a[1]+(a[2]-a[1])*.3];
+  const out = {DIRECT:tight(acc.DIRECT), SITE:tight(acc.SITE), HQ:tight(acc.HQ)};
+  out.CM = [100-out.DIRECT[2], 100-out.DIRECT[1], 100-out.DIRECT[0]];
+  const ohMed = (out.SITE[1]+out.HQ[1])/out.DIRECT[1]*100;
+  out.OHR = [ohMed*.8, ohMed, ohMed*1.2];
+  return out;
+}
+
+/* 데이터 상태: 값이 없거나 통합 공시된 항목을 설명 */
+function dataStatus(c, k){
+  const D = state.ds[c.id], nd = NODE[k], a = c.amt[k], src = D.src[k]||{};
+  const srcTxt = [];
+  if(src.merged) srcTxt.push(`합산 공시: ${src.merged.map(nameOf).join(' + ')}`);
+  if(src.nat) srcTxt.push('성격별 분류에서 판관비 내역 차감해 역산');
+  if(src.natGross) srcTxt.push('성격별 분류 금액 그대로 (판관비 몫 포함 가능)');
+  if(a > 0){
+    if(nd.lvl===2 && nd.kids.length && c.own[k] > 0){
+      if(c.kidsSum[k]===0) return {code:'l2only', icon:'↳', txt:['세부 구분 없이 항목 단위로만 공시', ...srcTxt].join(' · ')};
+      return {code:'partial', icon:'◑', txt:[`일부만 세부 구분 (구분 없음 ${fmt(c.own[k])})`, ...srcTxt].join(' · ')};
+    }
+    return {code: src.merged ? 'merged-host' : 'ok', icon: src.merged ? '⧉' : '✓', txt: srcTxt.join(' · ') || '입력값'};
+  }
+  const host = Object.keys(D.src).find(h=>h!==k && (D.src[h].merged||[]).includes(k) && c.amt[h]>0);
+  if(host) return {code:'merged', icon:'⧉', txt:`'${fullName(host)}' 계정에 합산되어 공시`};
+  if(nd.lvl===3 && c.own[nd.parent] > 0) return {code:'inParent', icon:'↳', txt:`상위 '${NODE[nd.parent].n}'에 통합 (세부 미구분)`};
+  const g = GRP[nd.g], un = c.amt[g.un];
+  if(un > 0) return {code:'unalloc', icon:'?', txt:`세부 미공시 — '${g.n}' 미구분 금액 ${fmt(un)}에 포함 가능`};
+  return {code:'none', icon:'–', txt:'해당 금액 없음 (다른 항목에 포함됐는지 확인)'};
+}
+
+/* ═════════ 5. 입력표 ═════════ */
+function buildForm(){
+  const u8 = (k, ph='') => `<input type="number" step="any" data-k="${k}" placeholder="${ph}">`;
+  $('#formGrid').innerHTML = GROUPS.map(g=>`
+    <div><table class="t">
+      <tr class="grp"><td colspan="3">${g.n}</td></tr>
+      <tr class="tot"><td>${g.n} 합계 <span class="note">(선택)</span></td><td class="n">${u8(g.total,'세부 합계 사용')}</td><td></td></tr>
+      ${g.items.map(it=>{
+        const nd = NODE[it.k];
+        const dir = g.id==='rev' ? '' : `<select class="dir" data-dk="${it.k}" title="직접비/간접비 분류"><option value="D">직접</option><option value="I">간접</option></select>`;
+        return `<tr class="l2"><td>${it.n}<div class="note" style="font-weight:400">${it.d||''} <span id="sub-${it.k}"></span></div></td>
+          <td class="n">${u8(it.k, nd.kids.length?'구분 없는 금액':'')}<div class="ds" id="src-${it.k}"></div></td><td>${dir}</td></tr>` +
+          nd.kids.map(ck=>`<tr class="l3"><td>${NODE[ck].n}</td><td class="n">${u8(ck)}<div class="ds" id="src-${ck}"></div></td><td></td></tr>`).join('');
+      }).join('')}
+      <tr><td colspan="3" class="note" id="res-${g.id}"></td></tr>
+    </table></div>`).join('');
+  $$('#formGrid input').forEach(inp=>inp.addEventListener('input',()=>{
+    const x = parseFloat(inp.value), D = state.ds[state.edit];
+    D.v[inp.dataset.k] = isNaN(x) ? null : x; delete D.src[inp.dataset.k];
+    $('#src-'+inp.dataset.k) && ($('#src-'+inp.dataset.k).textContent = '');
+    updateRecon();
+  }));
+  $$('#formGrid select.dir').forEach(sel=>sel.addEventListener('change',()=>{ state.ds[state.edit].dir[sel.dataset.dk] = sel.value; }));
+}
+function fillForm(){
+  const D = state.ds[state.edit];
+  $$('#dsSeg button').forEach(b=>b.classList.toggle('on', b.dataset.ds===state.edit));
+  $$('#formGrid input').forEach(inp=>{ const x = D.v[inp.dataset.k]; inp.value = (x==null)?'':x; });
+  $$('#formGrid select.dir').forEach(sel=>{ sel.value = dirOf(state.edit, sel.dataset.dk); });
+  $$('#formGrid .ds').forEach(el=>{
+    const s = D.src[el.id.slice(4)]; if(!s){ el.textContent=''; return; }
+    el.textContent = s.merged ? '⧉ 합산 공시' : s.nat ? '⇄ 성격별 역산' : s.natGross ? '⇄ 성격별(총액)' : s.derived ? '＝ 역산' : '';
+    el.title = s.merged ? s.merged.map(nameOf).join(' + ') : '';
+  });
+  updateRecon();
+}
+function updateRecon(){
+  const id = state.edit, c = compute(id), u = unitName();
+  for(const g of GROUPS){
+    const r = c.grp[g.id], el = $('#res-'+g.id);
+    g.items.forEach(it=>{ const s = $('#sub-'+it.k); if(s) s.innerHTML = c.amt[it.k] ? `· 소계 <b>${fmt(c.amt[it.k])}</b>` : ''; });
+    if(!r.hasTotal){ el.innerHTML = r.sumD ? `세부 합계 <b>${fmt(r.sumD)}</b> ${u}를 ${g.n}으로 사용` : ''; continue; }
+    if(Math.abs(r.un) < 0.5) el.innerHTML = '✓ 세부 항목 합계가 총액과 일치';
+    else if(r.un > 0) el.innerHTML = `미구분 <b>${fmt(r.un)}</b> ${u} (${g.n}의 ${pct(r.un/r.total*100)}) — 세부 항목으로 공시되지 않은 금액`;
+    else el.innerHTML = `<span class="up-bad">⚠ 세부 합계가 총액보다 ${fmt(-r.un)} ${u} 큼 — 중복 입력 확인</span>`;
+  }
+  $$('#dsSeg button').forEach(b=>b.querySelector('.dot').classList.toggle('has', hasData(b.dataset.ds)));
+  let msg = '';
+  if(c.rev){
+    msg = `<b>${DS_NAME[id]}</b> · 매출총이익 <b>${fmt(c.gp)}</b> ${u} (${pct(c.agg.GPM)}) · 영업이익 <b>${fmt(c.op)}</b> ${u} (${pct(c.agg.OPM)})`;
+    const ex = state.ds[id].ext||{};
+    const chk = (nm,a,b)=> (b!=null && Math.abs(a-b) > Math.max(1,Math.abs(b)*0.005)) ? ` · <span class="up-bad">⚠ 파일의 ${nm} 값(${fmt(b)})과 차이 ${fmt(a-b)}</span>` : (b!=null ? ` · ✓ 파일의 ${nm} 값과 일치` : '');
+    msg += chk('매출총이익', c.gp, ex.T_GP) + chk('영업이익', c.op, ex.T_OP);
+  }
+  $('#recon').innerHTML = msg;
+}
+/* ═════════ 6. 파일 추출 (엑셀 · PDF) ═════════ */
+const ex = {target:'dart', sheets:{}, sheet:null, rows:[]};
+const UNIT_RE = /단위\s*[:：]?\s*(백만원|천원|억원|원)/;
+const UNIT_VAL = {'원':1,'천원':1000,'백만원':1000000,'억원':100000000};
+function setStatus(t, err){ const s = $('#st-'+ex.target); s.textContent = t; s.className = 'status'+(err?' err':''); }
+
+async function handleFile(f){
+  if(!f) return;
+  setStatus(`'${f.name}' 읽는 중…`);
+  try{
+    const buf = await f.arrayBuffer();
+    if(/\.pdf$/i.test(f.name)) await readPdf(buf); else readXlsx(buf);
+    const names = Object.keys(ex.sheets);
+    if(!names.length) throw new Error('금액이 있는 행을 찾지 못했습니다');
+    let best = names[0], bestN = -1;
+    for(const nm of names){ const n = mapRows(ex.sheets[nm], 0).filter(r=>r.key).length; if(n>bestN){bestN=n;best=nm;} }
+    $('#exSheet').innerHTML = names.map(n=>`<option${n===best?' selected':''}>${esc(n)}</option>`).join('');
+    $('#sheetWrap').style.display = names.length>1 ? '' : 'none';
+    $('#pageWrap').style.display = ex.sheets[best].pos ? '' : 'none';
+    $('#exPages').value = '';
+    $('#exTarget').innerHTML = `<span class="pill st-ok">${DS_NAME[ex.target]}</span>`;
+    selectSheet(best);
+    $('#extractPanel').style.display = '';
+    $('#extractPanel').scrollIntoView({behavior:'smooth', block:'start'});
+    setStatus(`✓ '${f.name}' 추출 완료 — 매핑을 확인한 뒤 '입력표에 반영'을 누르세요`);
+  }catch(e){ console.error(e); setStatus('추출 실패: '+(e.message||e), true); }
+}
+
+/* 시트 형식: {rows:[{label, nums:[{c,v}], code?, dir?, page?}], cols:[{c,name,head}], unit, pos?} */
+function readXlsx(buf){
+  if(typeof XLSX==='undefined') throw new Error('엑셀 라이브러리를 불러오지 못했습니다 (네트워크 확인)');
+  const wb = XLSX.read(buf, {type:'array'});
+  ex.sheets = {};
+  for(const nm of wb.SheetNames){
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[nm], {header:1, raw:true, defval:null});
+    let unit = null; const rows = [], colVals = {}, colHead = {}, noteCol = {};
+    aoa.forEach((r, ri)=>{
+      let label = null, code = null, dir = null; const nums = [];
+      r.forEach((cell, ci)=>{
+        if(cell==null || cell==='') return;
+        const s = String(cell).trim();
+        if(!unit){ const m = s.match(UNIT_RE); if(m) unit = UNIT_VAL[m[1]]; }
+        if(CODE_RE.test(s)){ code = s; return; }
+        if(/^(직접|간접)(비)?$/.test(s)){ dir = s[0]==='직' ? 'D' : 'I'; return; }
+        const n = parseNum(cell);
+        if(n==null){
+          if(label==null && /[가-힣A-Za-z]/.test(s)) label = s;
+          if(ri < 15 && /당기|전기|\((당|전)\)|20\d\d|제\s*\d+\s*(\(.\))?\s*(기|期)|FY|^금액/i.test(s)) colHead[ci] = s.replace(/\s+/g,' ');
+          if(ri < 15 && /^(주석|주|note)$/i.test(s)) noteCol[ci] = true;
+        } else if(label!=null){ nums.push({c:ci, v:n}); (colVals[ci] = colVals[ci]||[]).push(Math.abs(n)); }
+      });
+      if(label && nums.length) rows.push({label, nums, code, dir});
+      else if(label && !code && HEADER_RE.test(normLabel(label))) rows.push({label, nums:[], header:true});
+    });
+    if(!rows.length) continue;
+    const med = a => { const s = [...a].sort((x,y)=>x-y); return s[Math.floor(s.length/2)]; };
+    const cols = Object.keys(colVals).map(Number)
+      .filter(c=>colVals[c].length>=2 && !noteCol[c] && med(colVals[c])>=100).sort((a,b)=>a-b)
+      .map(c=>({c, name:`${XLSX.utils.encode_col(c)}열${colHead[c]?' · '+colHead[c]:''}`, head:colHead[c]||''}));
+    if(cols.length) ex.sheets[nm] = {rows, cols, unit};
+  }
+}
+
+async function readPdf(buf){
+  if(typeof pdfjsLib==='undefined') throw new Error('PDF 라이브러리를 불러오지 못했습니다 (네트워크 확인)');
+  const base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js';
+  /* 로컬 파일(file://)·샌드박스에서도 동작하도록 워커를 메인 스레드에 로드 */
+  if(!window.pdfjsWorker) await new Promise((ok, fail)=>{
+    const s = document.createElement('script'); s.src = base + 'pdf.worker.min.js';
+    s.onload = ok; s.onerror = ()=>fail(new Error('PDF 워커를 불러오지 못했습니다 (네트워크 확인)'));
+    document.head.appendChild(s);
+  });
+  const doc = await pdfjsLib.getDocument({data:new Uint8Array(buf), cMapUrl:base+'cmaps/', cMapPacked:true}).promise;
+  const rows = []; let unit = null;
+  for(let p=1; p<=doc.numPages; p++){
+    setStatus(`PDF 읽는 중… ${p} / ${doc.numPages} 페이지`);
+    const tc = await (await doc.getPage(p)).getTextContent();
+    const lines = [];
+    for(const it of tc.items){
+      if(!it.str || !it.str.trim()) continue;
+      const y = it.transform[5], x = it.transform[4];
+      let ln = lines.find(l=>Math.abs(l.y-y) < 3);
+      if(!ln){ ln = {y, items:[]}; lines.push(ln); }
+      ln.items.push({x, s:it.str});
+    }
+    lines.sort((a,b)=>b.y-a.y);
+    for(const ln of lines){
+      ln.items.sort((a,b)=>a.x-b.x);
+      const text = ln.items.map(i=>i.s).join(' ');
+      if(!unit){ const m = text.match(UNIT_RE); if(m) unit = UNIT_VAL[m[1]]; }
+      let label = '', nums = [];
+      for(const t of text.split(/\s+/)){
+        if(NOTE_TOK.test(t)) continue;
+        const n = parseNum(t);
+        if(n==null){ if(!nums.length) label += (label?' ':'') + t; }
+        else if(label) nums.push(n);
+      }
+      if(!label || !/[가-힣A-Za-z]/.test(label)) continue;
+      if(!nums.length){ if(HEADER_RE.test(normLabel(label))) rows.push({label, nums:[], page:p, header:true}); continue; }
+      if(nums.length > 1) nums = nums.filter((n,i)=> !(i===0 && Number.isInteger(n) && Math.abs(n) < 100));
+      rows.push({label, nums:nums.map((v,i)=>({c:i, v})), page:p});
+    }
+  }
+  const cols = [0,1,2,3].map(i=>({c:i, name:`행별 ${i+1}번째 금액${i===0?' (보통 당기)':i===1?' (보통 전기 또는 당기 소계)':''}`, head:i===0?'당기':''}));
+  ex.sheets = rows.length ? {'PDF':{rows, cols, unit, pos:true}} : {};
+}
+function parsePages(s){
+  const rs = String(s||'').split(/[,\s]+/).filter(Boolean).map(x=>{ const m = x.match(/^(\d+)(?:-(\d+))?$/); return m ? [+m[1], +(m[2]||m[1])] : null; }).filter(Boolean);
+  return rs.length ? p => rs.some(([a,b])=>p>=a && p<=b) : null;
+}
+/* 행 → 표준 항목 (구간 추적) */
+function mapRows(sh, colIdx, pageOk){
+  const out = []; let section = 'none'; const seenTotal = {};
+  const col = sh.cols[colIdx];
+  for(const r of sh.rows){
+    if(pageOk && r.page && !pageOk(r.page)) continue;
+    let res;
+    if(r.code) res = {key:r.code, section, total:r.code.startsWith('T_')};
+    else { res = classify(r.label, section); section = res.section; }
+    if(r.header) continue;
+    let v = null;
+    if(col){ const n = sh.pos ? r.nums[col.c] : r.nums.find(x=>x.c===col.c); v = n ? n.v : null; }
+    if(v==null) continue;
+    let on = !!res.key, dup = false;
+    if(res.total){ if(seenTotal[res.key]){ on = false; dup = true; } seenTotal[res.key] = true; }
+    out.push({label:r.label, v, key:res.key, on, dup, sec:section, merged:res.merged||null, sgaKey:res.sgaKey||null, page:r.page, dir:r.dir, code:!!r.code});
+  }
+  return out;
+}
+function selectSheet(nm){
+  ex.sheet = nm; const sh = ex.sheets[nm];
+  let ci = sh.cols.findIndex(c=>/당기|\(당\)|^금액/.test(c.head||''));
+  if(ci<0){ let y = 0; sh.cols.forEach((c,i)=>{ const m = (c.head||'').match(/20\d\d/); if(m && +m[0]>y){ y = +m[0]; ci = i; } }); }
+  if(ci<0) ci = 0;
+  $('#exCol').innerHTML = sh.cols.map((c,i)=>`<option value="${i}"${i===ci?' selected':''}>${esc(c.name)}</option>`).join('');
+  $('#exUnit').value = String(sh.unit || $('#unit').value);
+  remap();
+}
+function remap(){ const sh = ex.sheets[ex.sheet]; ex.rows = mapRows(sh, +$('#exCol').value, parsePages($('#exPages').value)); renderExTable(); }
+const KEY_OPTS = [['','— 미매핑 (제외) —'], ...Object.entries(TOTAL_NAME).map(([k,n])=>[k,'■ '+n]),
+  ...GROUPS.flatMap(g=>g.items.flatMap(it=>[[it.k, `${g.n} › ${it.n}`], ...NODE[it.k].kids.map(ck=>[ck, `${g.n} › ${it.n} › ${NODE[ck].n}`])]))];
+const SEC_NAME = {none:'', rev:'매출', cogs:'매출원가', sga:'판관비', nat:'성격별', after:'영업외'};
+function renderExTable(){
+  const only = $('#exOnlyMapped').checked, u = +$('#exUnit').value, pdf = ex.sheets[ex.sheet].pos;
+  const head = `<tr><th style="width:52px;white-space:nowrap">반영</th>${pdf?'<th>쪽</th>':''}<th>원본 계정명</th><th>구간</th><th class="n">금액 (파일 단위)</th><th>표준 항목</th></tr>`;
+  const body = ex.rows.map((r,i)=>{
+    if(only && !r.key) return '';
+    const flags = (r.dup?' <span class="pill st-na">중복 합계</span>':'') + (r.merged?` <span class="pill st-hold" title="${esc(r.merged.map(nameOf).join(' + '))}">⧉ 합산</span>`:'') + (r.code?' <span class="pill st-low">코드</span>':'');
+    return `<tr class="${r.on?'':'off'}"><td><input type="checkbox" data-i="${i}" class="exOn"${r.on?' checked':''}></td>${pdf?`<td class="note">${r.page||''}</td>`:''}
+      <td>${esc(r.label)}${flags}</td><td class="note">${SEC_NAME[r.sec]||''}</td><td class="n">${fmt(r.v)}</td>
+      <td><select data-i="${i}" class="exKey">${KEY_OPTS.map(([k,n])=>`<option value="${k}"${k===(r.key||'')?' selected':''}>${n}</option>`).join('')}</select></td></tr>`;
+  }).join('');
+  $('#exTable').innerHTML = head + (body || `<tr><td colspan="6" class="empty">매핑된 행이 없습니다. '매핑된 행만 보기'를 해제하고 직접 지정하세요.</td></tr>`);
+  $('#exSummary').textContent = `전체 ${ex.rows.length}행 · 반영 예정 ${ex.rows.filter(r=>r.key&&r.on).length}행 · 단위 ${UNIT_NAME[u]}`;
+  $$('.exOn').forEach(cb=>cb.onchange=()=>{ ex.rows[cb.dataset.i].on = cb.checked; renderExTable(); });
+  $$('.exKey').forEach(sel=>sel.onchange=()=>{ const r = ex.rows[sel.dataset.i]; r.key = sel.value||null; r.on = !!r.key; r.merged = null; renderExTable(); });
+}
+const subtree = k => [k, ...(NODE[k] ? NODE[k].kids : [])];
+function applyExtraction(){
+  const k = +$('#exUnit').value / +$('#unit').value;
+  const v = {}, src = {}, ext = {}, dir = {}, nat = [], sgaRows = [];
+  const add = (key, x) => { v[key] = (v[key]||0) + x; };
+  for(const r of ex.rows){
+    if(!r.on || !r.key) continue;
+    const x = r.v * k;
+    if(r.key==='T_GP' || r.key==='T_OP'){ if(ext[r.key]==null) ext[r.key] = x; continue; }
+    if(r.key.startsWith('T_')){ if(v[r.key]==null) v[r.key] = x; continue; }
+    if(r.dir) dir[NODE[r.key].lvl===3 ? NODE[r.key].parent : r.key] = r.dir;
+    if(r.sec==='nat' && !r.code){ nat.push({...r, x}); continue; }
+    add(r.key, x);
+    if(r.merged) src[r.key] = {merged:r.merged};
+    if(NODE[r.key].g==='sga') sgaRows.push({key:r.key, n:normLabel(r.label), x});
+  }
+  /* 성격별 분류(원가+판관 합산) → 판관비 내역을 차감해 매출원가 몫 역산 */
+  const hasSga = sgaRows.length > 0;
+  for(const r of nat){
+    if(NODE[r.key].g==='sga'){ if(!hasSga || !v[r.key]) add(r.key, r.x); continue; }
+    if(hasSga){
+      const n = normLabel(r.label);
+      /* 인건비·감가상각·임차처럼 포괄 계정(L2)이면 하위 전체를, 그 외에는 같은 계정명만 차감 */
+      const wide = r.sgaKey && NODE[r.sgaKey].lvl===2 && ['S1','S3','S4'].includes(r.sgaKey);
+      const sub = r.sgaKey ? sgaRows.filter(s=> subtree(r.sgaKey).includes(s.key) && (wide || s.n===n)).reduce((a,s)=>a+s.x,0) : 0;
+      add(r.key, Math.max(0, r.x - sub));
+      src[r.key] = {...(src[r.key]||{}), nat:true, ...(r.merged?{merged:r.merged}:{})};
+    } else { add(r.key, r.x); src[r.key] = {...(src[r.key]||{}), natGross:true}; }
+  }
+  /* 성격별 '기타'에 섞인 판관비 몫: 매출원가 세부 합계가 총액을 넘으면 기타 원가에서 차감 */
+  if(nat.length && hasSga && v.T_COGS!=null && v.C7){
+    const cogsSum = Object.keys(v).filter(x=>NODE[x] && NODE[x].g==='cogs').reduce((s,x)=>s+v[x],0);
+    const over = cogsSum - v.T_COGS;
+    if(over > 0){ const cut = Math.min(over, v.C7); v.C7 -= cut; src.C7 = {...(src.C7||{}), nat:true}; }
+  }
+  if(v.T_COGS==null && v.T_REV!=null && ext.T_GP!=null){ v.T_COGS = v.T_REV - ext.T_GP; src.T_COGS = {derived:true}; }
+  if(v.T_SGA==null && ext.T_GP!=null && ext.T_OP!=null){ v.T_SGA = ext.T_GP - ext.T_OP; src.T_SGA = {derived:true}; }
+  for(const key in v) v[key] = Math.round(v[key]*100)/100;
+  const old = state.ds[ex.target];
+  state.ds[ex.target] = {v, src, ext, dir:{...old.dir, ...dir}};
+  state.edit = ex.target; state.view = ex.target;
+  fillForm();
+  setStatus(`✓ ${DS_NAME[ex.target]} 입력표에 반영했습니다${nat.length?` (성격별 분류 ${nat.length}개 계정 ${hasSga?'역산':'총액 반영'})`:''}`);
+  $('#formGrid').scrollIntoView({behavior:'smooth', block:'start'});
+}
+/* ═════════ 7. 분석 ═════════ */
+const PILL = {
+  high:'<span class="pill st-high">▲ 과다</span>', low:'<span class="pill st-low">▼ 낮음</span>', ok:'<span class="pill st-ok">● 적정</span>',
+  good:'<span class="pill st-low">▲ 우수</span>', bad:'<span class="pill st-high">▼ 부진</span>',
+  hold:'<span class="pill st-hold">◐ 보류</span>', na:'<span class="pill st-na">○ 판정 불가</span>',
+  mixHi:'<span class="pill st-ok">▲ 비중 높음</span>', mixLo:'<span class="pill st-ok">▼ 비중 낮음</span>', mixOk:'<span class="pill st-ok">● 유사</span>'
+};
+const gpBasis = () => $('#basis').value==='gp';
+/* 비교 기준 반영: 회사 % 와 업계 분포 */
+function basisOf(c, pctRev, b){
+  if(!gpBasis()) return {me:pctRev, b};
+  const gm = bench('GPM')[1];
+  return {me: c.gp ? pctRev*c.rev/c.gp : NaN, b:b.map(x=>x/gm*100)};
+}
+function judge(me, b, better){
+  if(isNaN(me)||isNaN(b[1])) return 'na';
+  if(me > b[2]) return better==='high' ? 'good' : 'high';
+  if(me < b[0]) return better==='high' ? 'bad' : 'low';
+  return 'ok';
+}
+/* 비용 노드(L2/L3) 분석 */
+function analyze(c, k){
+  const nd = NODE[k], a = c.amt[k], ds = dataStatus(c, k);
+  const {me, b} = basisOf(c, c.p(a), bench(k));
+  let st = 'na';
+  if(a > 0){
+    st = judge(me, b, 'low');
+    const unPct = c.p(c.amt[GRP[nd.g].un]);
+    if(st==='low' && (unPct > 0.5 || (nd.lvl===3 && c.own[nd.parent] > 0) || ds.code==='partial')) st = 'hold';
+  }
+  const excess = a > 0 ? (c.p(a) - bench(k)[1]) / 100 * c.rev : 0;
+  return {k, nd, a, me, b, st, ds, excess};
+}
+function pickView(){
+  let id = state.view;
+  if(!id || !hasData(id)) id = hasData('co') ? 'co' : 'dart';
+  state.view = id; return id;
+}
+function renderDash(){
+  const id = pickView(), c = compute(id), has = c.rev > 0;
+  $('#dashEmpty').style.display = has?'none':''; $('#dashBody').style.display = has?'':'none';
+  if(!has) return;
+  $$('#dashSeg button').forEach(b=>{ b.classList.toggle('on', b.dataset.ds===id); b.disabled = !hasData(b.dataset.ds); b.style.opacity = hasData(b.dataset.ds)?1:.4; });
+  const u = unitName();
+  $('#dTitle').textContent = `${$('#coName').value||'대상 회사'}${$('#coYear').value?' · '+$('#coYear').value:''}`;
+  $('#coverage').innerHTML = `비용 세분화 — L2 <b>${pct(c.cov.l2,0)}</b> · L3 <b>${pct(c.cov.l3,0)}</b>`;
+  $('#cmpBasis').textContent = `${gpBasis()?'매출총이익':'매출액'} 대비 % · 업계 중앙값 = 100 지수`;
+  const L2rows = COST_L2.map(k=>analyze(c,k));
+  const L3rows = Object.values(NODE).filter(n=>n.lvl===3 && n.g!=='rev').map(n=>analyze(c,n.k));
+  const bd = benchDir(id);
+  renderKpis(c, bd, u);
+  renderInsight(c, L2rows, L3rows, bd, u);
+  renderBridge(c, L2rows);
+  renderDirInd(c, bd, id);
+  renderWaterfall(c);
+  renderMix(c, u);
+  renderCompare(L2rows, u);
+  renderDetail(c, L2rows, L3rows, bd, u);
+  renderReconTable(u);
+}
+function renderKpis(c, bd, u){
+  const tile = (n, val, md, better, unitTxt) => {
+    const d = val - md, good = better==='high' ? d>=0 : d<=0;
+    return `<div class="panel kpi"><div class="lbl">${n}</div><div class="val">${pct(val)}</div><div class="sub">업계 ${pct(md)} · <span class="${good?'up-good':'up-bad'}">${pp(d)}</span></div></div>`;
+  };
+  $('#kpis').innerHTML =
+    `<div class="panel kpi"><div class="lbl">매출액</div><div class="val">${fmt(c.rev)} <span style="font-size:12px;font-weight:500;color:var(--muted)">${u}</span></div><div class="sub">${DS_NAME[c.id]} 기준</div></div>` +
+    tile('매출총이익률', c.agg.GPM, bench('GPM')[1], 'high') +
+    tile('판관비율', c.agg.SGA, bench('SGA')[1], 'low') +
+    tile('영업이익률', c.agg.OPM, bench('OPM')[1], 'high') +
+    tile('공헌이익률 (매출−직접비)', c.agg.CM, bd.CM[1], 'high') +
+    tile('간접비율 (현장+본사)', c.agg.SITE + c.agg.HQ, bd.SITE[1] + bd.HQ[1], 'low');
+}
+function renderInsight(c, L2rows, L3rows, bd, u){
+  const nm = $('#coName').value || '대상 회사';
+  const opm = c.agg.OPM, md = bench('OPM')[1];
+  const over = L2rows.filter(r=>r.a>0 && r.excess>0).sort((a,b)=>b.excess-a.excess).slice(0,3);
+  const high = L2rows.filter(r=>r.st==='high');
+  const save = high.reduce((s,r)=>s+r.excess,0);
+  const saveP75 = high.reduce((s,r)=>s+(c.p(r.a)-bench(r.k)[2])/100*c.rev,0);
+  let h = `<h3>${esc(nm)} (${DS_NAME[c.id]}) 영업이익률 ${pct(opm)} — 업계 중앙값 ${pct(md)} 대비 <span class="${opm>=md?'up-good':'up-bad'}">${pp(opm-md)}</span></h3>`;
+  h += `<div class="sec">① 업계보다 많이 발생하는 비용</div>`;
+  if(over.length){
+    h += '<ol>' + over.map(r=>{
+      const kid = L3rows.filter(x=>x.nd.parent===r.k && x.a>0 && x.excess>0).sort((a,b)=>b.excess-a.excess)[0];
+      const drill = kid ? ` → 세부 원인: <b>${kid.nd.n}</b> ${pct(c.p(kid.a))} (업계 ${pct(bench(kid.k)[1])})` : (r.nd.kids.length ? ` → <span class="note">세부(L3) ${r.ds.code==='l2only'?'미공시 — 회사 자료로 확인 필요':'구분 정보 부족'}</span>` : '');
+      return `<li><b>${r.nd.n}</b> ${pct(c.p(r.a))} (업계 중앙값 ${pct(bench(r.k)[1])}) · 중앙값 대비 <b>${fmt(r.excess)} ${u}</b> 추가 ${PILL[r.st]}${drill}</li>`;
+    }).join('') + '</ol>';
+    if(save>0) h += `<div>상위25%를 넘는 항목(${high.map(r=>r.nd.n).join(', ')})을 상위25% 경계까지만 낮춰도 영업이익 <b>+${fmt(saveP75)} ${u}</b> (+${(saveP75/c.rev*100).toFixed(1)}%p), 중앙값 수준이면 <b>+${fmt(save)} ${u}</b> (+${(save/c.rev*100).toFixed(1)}%p)</div>`;
+  } else h += '<div>업계 중앙값을 넘는 비용 항목이 없습니다.</div>';
+  const low = L2rows.filter(r=>r.st==='low'), hold = L2rows.filter(r=>r.st==='hold');
+  if(low.length || hold.length){
+    h += `<div class="sec">② 업계보다 적게 발생 · 판정 보류</div><ul>`;
+    if(low.length) h += `<li>낮음: ${low.map(r=>`${r.nd.n} ${pct(c.p(r.a))} (업계 ${pct(bench(r.k)[1])})`).join(', ')}</li>`;
+    if(hold.length) h += `<li>보류: ${hold.map(r=>r.nd.n).join(', ')} — 미구분 금액이 있어 실제보다 작게 집계됐을 수 있음</li>`;
+    h += `</ul>`;
+  }
+  const ind = c.agg.SITE + c.agg.HQ, indB = bd.SITE[1] + bd.HQ[1];
+  if(c.direct===0 && c.amt.C_UN>0) h += `<div class="sec">③ 직접비 · 간접비</div><div class="note">매출원가 세부가 공시되지 않아 직접비 · 간접비를 구분할 수 없습니다 (판관비 = 본사 간접비 ${pct(c.agg.HQ)}, 업계 ${pct(bd.HQ[1])}).</div>`;
+  else h += `<div class="sec">③ 직접비 · 간접비</div><div>직접비 ${pct(c.agg.DIRECT)} (업계 ${pct(bd.DIRECT[1])}) · 간접비 ${pct(ind)} (업계 ${pct(indB)}) · 직접비 1원당 간접비 ${pct(c.agg.OHR,0)} (업계 ${pct(bd.OHR[1],0)})
+    → ${ind > indB*1.1 ? '<b class="up-bad">간접비 부담이 업계보다 큼</b>' : ind < indB*0.9 ? '<b class="up-good">간접비 부담이 업계보다 작음</b>' : '간접비 부담은 업계와 비슷'}${c.agg.UNCLS>0.5?` · <span class="note">매출원가 미구분 ${pct(c.agg.UNCLS)}는 직·간접 판단 불가</span>`:''}</div>`;
+  const nAll = [...L2rows, ...L3rows];
+  const cnt = code => nAll.filter(r=>r.ds.code===code).length;
+  const lim = [];
+  if(c.amt.C_UN>0) lim.push(`매출원가 미구분 ${fmt(c.amt.C_UN)} ${u} (${pct(c.p(c.amt.C_UN))})`);
+  if(c.amt.S_UN>0) lim.push(`판관비 미구분 ${fmt(c.amt.S_UN)} ${u} (${pct(c.p(c.amt.S_UN))})`);
+  if(cnt('unalloc')) lim.push(`세부 미공시 ${cnt('unalloc')}개 항목`);
+  if(cnt('inParent')+cnt('l2only')) lim.push(`상위 항목에 통합 ${cnt('inParent')+cnt('l2only')}개`);
+  if(cnt('merged')+cnt('merged-host')) lim.push(`합산 공시 ${cnt('merged')+cnt('merged-host')}개`);
+  if(lim.length) h += `<div class="sec">④ 데이터 한계</div><div class="note">${lim.join(' · ')}${c.id==='dart'?' — <b>회사 제공 자료</b>를 입력하면 L3 세부까지 판정됩니다':''}</div>`;
+  $('#insight').innerHTML = h;
+}
+/* 영업이익률 차이 분해: 업계 중앙 OPM + Σ(업계 중앙 − 회사) = 회사 OPM */
+function renderBridge(c, L2rows){
+  const start = bench('OPM')[1], end = c.agg.OPM, steps = [];
+  for(const gid of ['cogs','sga']){
+    const rs = L2rows.filter(r=>r.nd.g===gid);
+    rs.filter(r=>r.a>0).forEach(r=>steps.push({n:r.nd.n, v:bench(r.k)[1]-c.p(r.a)}));
+    const empty = rs.filter(r=>r.a<=0), un = c.p(c.amt[GRP[gid].un]);
+    const ev = empty.reduce((s,r)=>s+bench(r.k)[1],0) - un;
+    if(empty.length || un>0) steps.push({n:`${gid==='cogs'?'원가':'판관'} 미공시·미구분 (${empty.length}개 항목)`, v:ev, muted:true});
+  }
+  const sum = steps.reduce((s,x)=>s+x.v,0), res = end - start - sum;
+  if(Math.abs(res) > 0.05) steps.push({n:'업계 분포 합계 조정', v:res, muted:true});
+  const shown = steps.filter(s=>Math.abs(s.v)>=0.05).sort((a,b)=>a.v-b.v);
+  let cum = start; const bars = [{n:'업계 중앙값 영업이익률', from:0, to:start, tot:true}];
+  shown.forEach(s=>{ bars.push({n:s.n, from:cum, to:cum+s.v, v:s.v, muted:s.muted}); cum += s.v; });
+  bars.push({n:`${DS_NAME[c.id]} 영업이익률`, from:0, to:end, tot:true, me:true});
+  const lo = Math.min(0, ...bars.map(b=>Math.min(b.from,b.to))), hi = Math.max(0, ...bars.map(b=>Math.max(b.from,b.to)));
+  const X = v => (v-lo)/((hi-lo)||1)*100;
+  let h = `<div style="display:grid;grid-template-columns:minmax(120px,190px) 1fr 64px;gap:3px 10px;align-items:center;font-size:12.5px">`;
+  for(const b of bars){
+    const l = X(Math.min(b.from,b.to)), w = Math.max(.6, Math.abs(X(b.to)-X(b.from)));
+    const col = b.tot ? (b.me?'var(--s1)':'var(--cost)') : b.muted ? 'var(--band)' : (b.v<0 ? 'var(--serious)' : 'var(--good)');
+    const val = b.tot ? pct(b.to) : pp(b.v);
+    h += `<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${b.tot?'font-weight:700':''}" title="${esc(b.n)}">${b.n}</div>
+      <div style="position:relative;height:18px"><span style="position:absolute;left:${X(0)}%;top:-2px;bottom:-2px;width:1px;background:var(--axis)"></span>
+        <span class="hov" data-tip="<b>${esc(b.n)}</b><br>${b.tot?'':'영업이익률 영향 '}${val}" style="position:absolute;left:${l}%;width:${w}%;top:3px;height:12px;border-radius:3px;background:${col}"></span></div>
+      <div style="text-align:right;font-variant-numeric:tabular-nums;${b.tot?'font-weight:700':''}" class="${b.tot?'':(b.v<0?'up-bad':'up-good')}">${val}</div>`;
+  }
+  h += `</div><div class="legend"><span><i style="width:12px;height:10px;background:var(--serious);border-radius:2px"></i>영업이익률을 낮춘 항목 (−)</span><span><i style="width:12px;height:10px;background:var(--good);border-radius:2px"></i>높인 항목 (+)</span><span><i style="width:12px;height:10px;background:var(--band);border-radius:2px"></i>미공시 · 조정</span></div>`;
+  $('#bridge').innerHTML = h;
+}
+function stackBar(segs){
+  const tot = segs.reduce((s,x)=>s+Math.max(0,x.v),0) || 1;
+  return `<div class="mixbar">${segs.filter(x=>x.v>0).map(x=>{ const w = x.v/tot*100;
+    return `<div class="hov" style="width:${w}%;background:${x.col};${x.dark?'color:#0b0b0b':''}" data-tip="<b>${x.n}</b><br>매출액 대비 ${pct(x.v)}">${w>=9?x.v.toFixed(1):''}</div>`; }).join('')}</div>`;
+}
+function renderDirInd(c, bd, id){
+  const op = Math.max(0, c.agg.OPM), opB = bench('OPM')[1];
+  const segs = (d,s,hq,un,o) => [
+    {n:'직접비', v:d, col:'var(--s1)'}, {n:'현장 간접비 (매출원가 내)', v:s, col:'var(--s2)'},
+    {n:'본사 간접비 (판관비)', v:hq, col:'var(--s3)'}, {n:'직·간접 미분류', v:un, col:'var(--cost)'}, {n:'영업이익', v:o, col:'var(--s4)', dark:true}];
+  let h = `<div class="note" style="font-weight:700;margin-bottom:4px">${DS_NAME[id]}</div>${stackBar(segs(c.agg.DIRECT, c.agg.SITE, c.agg.HQ, c.agg.UNCLS, op))}
+    <div class="note" style="font-weight:700;margin:10px 0 4px">업계 중앙값 (같은 분류 기준)</div>${stackBar(segs(bd.DIRECT[1], bd.SITE[1], bd.HQ[1], 0, opB))}
+    <div class="legend">${segs(0,0,0,0,0).map(x=>`<span><i style="width:10px;height:10px;border-radius:2px;background:${x.col}"></i>${x.n}</span>`).join('')}</div>`;
+  const noSplit = c.direct===0 && c.amt.C_UN>0;
+  const rows = [
+    ['직접비율', c.agg.DIRECT, bd.DIRECT, 'low'], ['현장 간접비율', c.agg.SITE, bd.SITE, 'low'], ['본사 간접비율 (판관)', c.agg.HQ, bd.HQ, 'low'],
+    ['공헌이익률 (매출−직접비)', c.agg.CM, bd.CM, 'high'], ['간접비 배부율 (간접비÷직접비)', c.agg.OHR, bd.OHR, 'low']];
+  h += `<table class="t" style="margin-top:12px"><tr><th>지표</th><th class="n">회사</th><th class="n">업계 중앙</th><th class="n">차이</th><th>판정</th></tr>` +
+    rows.map(([n,me,b,bt],i)=>{ const na = noSplit && i!==2; return `<tr><td>${n}</td><td class="n"><b>${na?'–':pct(me)}</b></td><td class="n">${pct(b[1])}</td><td class="n">${na?'–':pp(me-b[1])}</td><td>${na?PILL.na:PILL[judge(me,b,bt)]}</td></tr>`; }).join('') + '</table>';
+  h += `<p class="note" style="margin:6px 0 0">${noSplit ? '⚠ 매출원가 세부가 공시되지 않아 직접비·현장 간접비를 나눌 수 없습니다. 회사 제공 자료로 보완하세요.' : '직·간접 분류는 입력표 L2 행의 [직접/간접]에서 바꿀 수 있으며, 업계 기준도 같은 분류로 다시 합산됩니다.'}${c.agg.UNCLS>0.5 && !noSplit ? ` 매출원가 미구분 ${pct(c.agg.UNCLS)}는 미분류로 표시됩니다.` : ''}</p>`;
+  $('#dirind').innerHTML = h;
+}
+function renderWaterfall(c){
+  const W=560, H=260, L=40, R=12, T=24, B=36, pw=W-L-R, ph=H-T-B, y = v => T + ph*(1 - v/100);
+  const g = c.agg.GPM, o = c.agg.OPM, bm = {GPM:bench('GPM')[1], OPM:bench('OPM')[1]};
+  const bars = [
+    {n:'매출액', from:0, to:100, tot:true}, {n:'매출원가', from:g, to:100, lab:-(100-g)},
+    {n:'매출총이익', from:0, to:g, tot:true, med:bm.GPM}, {n:'판관비', from:o, to:g, lab:-c.agg.SGA},
+    {n:'영업이익', from:Math.min(0,o), to:Math.max(0,o), tot:true, med:bm.OPM, lab:o}];
+  const bw = pw/bars.length, w = Math.min(56, bw*0.55);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="손익 흐름 차트">`;
+  [0,25,50,75,100].forEach(t=>{ s += `<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--grid)"/><text x="${L-8}" y="${y(t)+4}" font-size="11" text-anchor="end" fill="var(--faint)">${t}</text>`; });
+  bars.forEach((b,i)=>{
+    const cx = L + bw*i + bw/2, top = y(b.to), hgt = Math.max(1.5, y(b.from)-y(b.to)), lv = b.lab!=null ? b.lab : b.to-b.from;
+    s += `<rect x="${cx-w/2}" y="${top}" width="${w}" height="${hgt}" rx="3" fill="${b.tot?'var(--s1)':'var(--cost)'}" class="hov" data-tip="<b>${b.n}</b><br>매출액 대비 ${pct(Math.abs(lv))}${b.med!=null?`<br>업계 중앙값 ${pct(b.med)}`:''}"/>`;
+    if(i<bars.length-1){ const yy = b.tot ? y(b.to) : y(b.from); s += `<line x1="${cx+w/2}" x2="${cx+bw-w/2}" y1="${yy}" y2="${yy}" stroke="var(--axis)"/>`; }
+    s += `<text x="${cx}" y="${top-7}" font-size="12.5" font-weight="700" text-anchor="middle" fill="var(--ink)">${lv<0?'−':''}${Math.abs(lv).toFixed(1)}</text>`;
+    if(b.med!=null){ const my = y(b.med); s += `<path d="M${cx+w/2+10} ${my-5} l5 5 l-5 5 l-5 -5z" fill="var(--amber)" stroke="var(--panel)" stroke-width="1.5"/><text x="${cx+w/2+18}" y="${my+4}" font-size="11" fill="var(--muted)">${b.med.toFixed(1)}</text>`; }
+    s += `<text x="${cx}" y="${H-B+18}" font-size="12.5" text-anchor="middle" fill="var(--muted)">${b.n}</text>`;
+  });
+  $('#wf').innerHTML = s + '</svg>';
+}
+function renderMix(c, u){
+  const its = GRP.rev.items, sum = its.reduce((s,it)=>s+c.amt[it.k],0);
+  if(sum<=0){ $('#mix').innerHTML = `<div class="empty" style="padding:30px 10px">매출 세부 구성이 공시되지 않았습니다 (매출액 총액만 확인).<br>회사 제공 자료에 사업별 매출을 입력하면 업계 구성과 비교합니다.</div>`; return; }
+  const cols = ['var(--s1)','var(--s2)','var(--s3)','var(--s4)'];
+  const me = its.map((it,i)=>({n:it.n, v:c.amt[it.k]/c.rev*100, col:cols[i], dark:i===3}));
+  const bm = its.map((it,i)=>({n:it.n, v:bench(it.k)[1], col:cols[i], dark:i===3}));
+  let h = `<div class="note" style="font-weight:700;margin-bottom:4px">${DS_NAME[c.id]}</div>${stackBar(me)}<div class="note" style="font-weight:700;margin:10px 0 4px">업계 중앙값</div>${stackBar(bm)}
+    <div class="legend">${me.map(x=>`<span><i style="width:10px;height:10px;border-radius:2px;background:${x.col}"></i>${x.n}</span>`).join('')}</div>`;
+  h += `<table class="t" style="margin-top:10px"><tr><th>사업</th><th class="n">금액 (${u})</th><th class="n">비중</th><th class="n">업계 중앙</th><th>구성 판정</th></tr>` +
+    its.map(it=>{ const v = c.amt[it.k]/c.rev*100, b = bench(it.k), st = judge(v,b,'low'); return `<tr><td>${it.n}</td><td class="n">${fmt(c.amt[it.k])}</td><td class="n"><b>${pct(v)}</b></td><td class="n">${pct(b[1])}</td><td>${st==='high'?PILL.mixHi:st==='low'?PILL.mixLo:PILL.mixOk}</td></tr>`; }).join('') +
+    (c.amt.R_UN>0 ? `<tr><td>미구분 매출</td><td class="n">${fmt(c.amt.R_UN)}</td><td class="n">${pct(c.amt.R_UN/c.rev*100)}</td><td></td><td class="note">세부 미공시</td></tr>` : '') + '</table>';
+  $('#mix').innerHTML = h;
+}
+function renderCompare(rows, u){
+  const MAX = 250, X = v => Math.max(0, Math.min(MAX, v))/MAX*100, ticks = [0,50,100,150,200,250];
+  let h = `<div style="display:grid;grid-template-columns:minmax(140px,200px) 1fr 140px 84px;gap:4px 12px;align-items:center;font-size:13px">
+    <div></div><div style="position:relative;height:18px">${ticks.map(t=>`<span style="position:absolute;left:${X(t)}%;transform:translateX(-50%);font-size:11px;color:var(--faint)">${t===MAX?t+'+':t}</span>`).join('')}</div>
+    <div class="note" style="text-align:right">회사 / 업계 중앙</div><div></div>`;
+  let lastG = '';
+  for(const r of rows){
+    if(r.nd.g!==lastG){ lastG = r.nd.g; h += `<div style="grid-column:1/-1;font-weight:900;margin-top:8px;padding-top:6px;border-top:1px solid var(--line)">${GRP[lastG].n}</div>`; }
+    const md = r.b[1], idx = md ? r.me/md*100 : NaN, lo = md ? r.b[0]/md*100 : 0, hi = md ? r.b[2]/md*100 : 0;
+    const dot = r.st==='high' ? 'var(--serious)' : 'var(--s1)';
+    const tip = `<b>${r.nd.n}</b><br>${r.a>0?`회사 ${pct(r.me)} · `:''}업계 ${pct(r.b[0])} / <b>${pct(r.b[1])}</b> / ${pct(r.b[2])}<br>${r.a>0?`금액 ${fmt(r.a)} ${u}${r.excess>0?` · 중앙 대비 초과 <b>${fmt(r.excess)}</b>`:''}<br>`:''}${r.ds.icon} ${r.ds.txt}`;
+    h += `<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.nd.n}</div>
+      <div class="hov" data-tip="${esc(tip)}" style="position:relative;height:24px">
+        ${ticks.map(t=>`<span style="position:absolute;left:${X(t)}%;top:0;bottom:0;width:1px;background:var(--grid)"></span>`).join('')}
+        <span style="position:absolute;left:${X(lo)}%;width:${X(hi)-X(lo)}%;top:7px;height:10px;background:var(--band);border-radius:3px"></span>
+        <span style="position:absolute;left:${X(100)}%;top:3px;height:18px;width:2px;margin-left:-1px;background:var(--muted)"></span>
+        ${r.a>0 && !isNaN(idx) ? `<span style="position:absolute;left:${X(idx)}%;top:5px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:${dot};box-shadow:0 0 0 2px var(--panel)"></span>` : `<span class="ds" style="position:absolute;left:4px;top:2px;max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--panel);padding:1px 6px;border-radius:4px;box-shadow:0 0 0 1px var(--line)">${r.ds.icon} ${esc(r.ds.txt)}</span>`}
+      </div>
+      <div style="text-align:right;font-variant-numeric:tabular-nums">${r.a>0?`<b>${pct(r.me)}</b>`:'–'} <span class="note">/ ${pct(r.b[1])}</span></div><div>${PILL[r.st]}</div>`;
+  }
+  $('#cmp').innerHTML = h + '</div>';
+}
+function renderDetail(c, L2rows, L3rows, bd, u){
+  const gp = gpBasis();
+  let h = `<tr><th>항목</th><th class="n">금액 (${u})</th><th class="n">회사 %</th><th class="n">하위25%</th><th class="n">중앙값</th><th class="n">상위25%</th><th class="n">중앙 대비</th><th class="n">초과 비용</th><th>판정</th><th>데이터 상태</th></tr>`;
+  const line = (cls, label, amt, me, b, st, ex, dsTxt, attrs='') => `<tr class="${cls}" ${attrs}><td>${label}</td><td class="n">${amt==null?'':fmt(amt)}</td><td class="n"><b>${amt===0?'–':pct(me)}</b></td>
+    <td class="n">${pct(b[0])}</td><td class="n">${pct(b[1])}</td><td class="n">${pct(b[2])}</td><td class="n">${amt===0?'–':pp(me-b[1])}</td>
+    <td class="n">${ex>0?fmt(ex):'–'}</td><td>${PILL[st]||''}</td><td class="ds">${dsTxt||''}</td></tr>`;
+  const L1 = (n, amt, k, better, inv) => {
+    let b = inv ? bench(k).map(x=>100-x).reverse() : bench(k), me = c.p(amt);
+    ({me, b} = basisOf(c, me, b));
+    return line('grp', n, amt, me, b, judge(me, b, better), null, '');
+  };
+  const tree = gid => L2rows.filter(r=>r.nd.g===gid).map(r=>{
+    const kids = L3rows.filter(x=>x.nd.parent===r.k);
+    const tog = kids.length ? `<span class="tog" data-t="${r.k}">▸</span>` : '<span class="tog"></span>';
+    return line('l2', tog + r.nd.n + ` <span class="note">(${dirOf(c.id,r.k)==='D'?'직접':'간접'})</span>`, r.a, r.me, r.b, r.st, r.excess, `${r.ds.icon} ${esc(r.ds.txt)}`) +
+      kids.map(x=>line('l3', x.nd.n, x.a, x.me, x.b, x.st, x.excess, `${x.ds.icon} ${esc(x.ds.txt)}`, `data-p="${r.k}" style="display:none"`)).join('');
+  }).join('');
+  const unRow = gid => { const g = GRP[gid], a = c.amt[g.un]; return a>0 ? `<tr class="l2"><td><span class="tog"></span>미구분 (세부 미공시)</td><td class="n">${fmt(a)}</td><td class="n">${pct(basisOf(c,c.p(a),[0,0,0]).me)}</td><td colspan="5"></td><td>${PILL.na}</td><td class="ds">? ${g.n} 총액 중 세부 항목으로 공시되지 않은 금액</td></tr>` : ''; };
+  h += `<tr class="grp"><td>매출액</td><td class="n">${fmt(c.rev)}</td><td class="n"><b>100.0%</b></td><td colspan="7" class="note">${gp?'매출총이익 대비 기준 — 비용 항목은 매출총이익을 100으로 환산':'매출액 대비 기준'}</td></tr>`;
+  h += L1('매출원가', c.cogs, 'GPM', 'low', true) + tree('cogs') + unRow('cogs');
+  h += L1('매출총이익', c.gp, 'GPM', 'high');
+  h += L1('판매비와관리비', c.sga, 'SGA', 'low') + tree('sga') + unRow('sga');
+  h += L1('영업이익', c.op, 'OPM', 'high');
+  h += `<tr class="grp"><td colspan="10">요약 · 직접비/간접비 지표 — 매출액 대비 %</td></tr>`;
+  const noSplit = c.direct===0 && c.amt.C_UN>0;
+  [['EBITDA 마진 (영업이익+감가상각)', c.ebitda, c.agg.EBITDA, bench('EBITDA'), 'high'],
+   ['총인건비율 (원가+판관)', c.labor, c.agg.LABOR, bench('LABOR'), 'low'],
+   ['감가상각비율', c.da, c.agg.DA, bench('DA'), 'low'],
+   ['직접비', c.direct, c.agg.DIRECT, bd.DIRECT, 'low', noSplit],
+   ['현장 간접비 (매출원가 내)', c.siteOH, c.agg.SITE, bd.SITE, 'low', noSplit],
+   ['본사 간접비 (판관비)', c.hqOH, c.agg.HQ, bd.HQ, 'low'],
+   ['공헌이익 (매출−직접비)', c.rev-c.direct, c.agg.CM, bd.CM, 'high', noSplit]
+  ].forEach(([n,a,me,b,bt,na])=>{ h += na ? line('l2', n, 0, NaN, b, 'na', null, '? 매출원가 세부 미공시로 산출 불가') : line('l2', n, a, me, b, judge(me,b,bt), null, ''); });
+  $('#detail').innerHTML = h;
+  $$('#detail .tog[data-t]').forEach(t=>t.onclick=()=>{ const open = t.textContent==='▸'; t.textContent = open?'▾':'▸'; $$(`#detail tr[data-p="${t.dataset.t}"]`).forEach(r=>r.style.display = open?'':'none'); });
+}
+function renderReconTable(u){
+  const show = hasData('dart') && hasData('co');
+  $('#reconPanel').style.display = show ? '' : 'none';
+  if(!show) return;
+  const a = compute('dart'), b = compute('co');
+  const row = (n, x, y, cls='', note='') => { const d = y-x, r = x ? d/Math.abs(x)*100 : NaN, bad = Math.abs(r) > 1;
+    return `<tr class="${cls}"><td>${n}</td><td class="n">${x?fmt(x):'–'}</td><td class="n">${fmt(y)}</td><td class="n">${x?fmt(d):'–'}</td><td class="n ${bad&&x?'up-bad':''}">${x?pct(r):'–'}</td><td class="ds">${note || (x ? (bad?'⚠ 확인 필요':'✓ 일치') : '')}</td></tr>`; };
+  let h = `<tr><th>항목</th><th class="n">DART 공시</th><th class="n">회사 제공</th><th class="n">차이</th><th class="n">차이율</th><th>비고</th></tr>`;
+  h += row('매출액', a.rev, b.rev, 'grp') + row('매출원가', a.cogs, b.cogs, 'grp') + row('매출총이익', a.gp, b.gp, 'grp') + row('판매비와관리비', a.sga, b.sga, 'grp') + row('영업이익', a.op, b.op, 'grp');
+  for(const k of COST_L2){
+    if(!a.amt[k] && !b.amt[k]) continue;
+    const st = dataStatus(a, k);
+    h += row(NODE[k].n, a.amt[k], b.amt[k], 'l2', a.amt[k] ? '' : `공시에서는 ${st.txt} → 회사 자료로 확인됨`);
+  }
+  $('#reconTable').innerHTML = h;
+}
+/* ═════════ 8. 업계 기준 · 매핑 사전 탭 ═════════ */
+function renderBench(){
+  $('#benchSrc').textContent = BENCH.source || '';
+  const tri = (k) => { const b = BENCH.items[k]||[]; return [0,1,2].map(i=>`<td class="n"><input type="number" step="0.1" data-bk="${k}" data-bi="${i}" value="${b[i]}" style="width:84px"></td>`).join(''); };
+  let h = `<tr><th>항목</th><th class="n">하위25%</th><th class="n">중앙값</th><th class="n">상위25%</th><th class="n">구성비 (L3)</th><th class="n">→ 중앙값 환산</th></tr>`;
+  h += `<tr class="grp"><td colspan="6">매출 구성 (매출액 대비 %)</td></tr>` + GRP.rev.items.map(it=>`<tr class="l2"><td>${it.n}</td>${tri(it.k)}<td></td><td></td></tr>`).join('');
+  for(const g of GROUPS.slice(1)){
+    h += `<tr class="grp"><td colspan="6">${g.n} (매출액 대비 %)</td></tr>`;
+    g.items.forEach(it=>{
+      h += `<tr class="l2"><td>${it.n}</td>${tri(it.k)}<td></td><td></td></tr>`;
+      NODE[it.k].kids.forEach(ck=>{ h += `<tr class="l3"><td>${NODE[ck].n}</td><td></td><td></td><td></td>
+        <td class="n"><input type="number" step="1" data-sk="${ck}" value="${shareOf(ck)}" style="width:70px"> %</td><td class="n note">${pct(bench(ck)[1],2)}</td></tr>`; });
+    });
+  }
+  h += `<tr class="grp"><td colspan="6">요약 지표 (매출액 대비 %)</td></tr>` +
+    [['GPM','매출총이익률'],['SGA','판관비율'],['OPM','영업이익률'],['EBITDA','EBITDA 마진'],['LABOR','총인건비율'],['DA','감가상각비율']].map(([k,n])=>`<tr class="l2"><td>${n}</td>${tri(k)}<td></td><td></td></tr>`).join('');
+  h += `<tr><td colspan="6" class="note">직접비 · 간접비 · 공헌이익 기준은 회사별 직·간접 분류에 맞춰 위 L2 분포를 합산해 자동 계산합니다.</td></tr>`;
+  $('#benchTable').innerHTML = h;
+  const touched = () => { BENCH.source = '사용자 수정값'; saveBench(); $('#benchSrc').textContent = BENCH.source; };
+  $$('#benchTable input[data-bk]').forEach(inp=>inp.onchange=()=>{ const x = parseFloat(inp.value); if(isNaN(x)) return; (BENCH.items[inp.dataset.bk] = BENCH.items[inp.dataset.bk]||[0,0,0])[+inp.dataset.bi] = x; touched(); });
+  $$('#benchTable input[data-sk]').forEach(inp=>inp.onchange=()=>{ const x = parseFloat(inp.value); if(isNaN(x)) return; BENCH.share = BENCH.share||{}; BENCH.share[inp.dataset.sk] = x; touched(); renderBench(); });
+  const kw = re => esc(re.source.replace(/\\/g,'').replace(/[\^$()]/g,'').split('|').join(', '));
+  let d = `<tr><th>적용 구간</th><th>인식 키워드 (공백 · 번호 · 주석표시 제거 후 비교)</th><th>표준 항목</th></tr>`;
+  d += `<tr class="grp"><td colspan="3">합계 행 — 정확히 일치할 때 구간 전환</td></tr>` + TOTALS.map(t=>`<tr><td>전체</td><td class="note">${kw(t.re)}</td><td>${TOTAL_NAME[t.k]}</td></tr>`).join('');
+  d += `<tr class="grp"><td colspan="3">매출액 구간</td></tr>` + REV_RULES.map(([re,k])=>`<tr><td>매출</td><td class="note">${kw(re)}</td><td>${fullName(k)}</td></tr>`).join('');
+  d += `<tr class="grp"><td colspan="3">매출원가 · 성격별 분류 구간</td></tr>` + COGS_RULES.map(([re,k])=>`<tr><td>매출원가</td><td class="note">${kw(re)}</td><td>${fullName(k)}</td></tr>`).join('');
+  d += `<tr class="grp"><td colspan="3">판관비 구간</td></tr>` + SGA_RULES.map(([re,k])=>`<tr><td>판관비</td><td class="note">${kw(re)}</td><td>${fullName(k)}</td></tr>`).join('');
+  d += `<tr><td colspan="3" class="note">'및 , / & ㆍ'로 이어진 계정은 구성요소별로 판별합니다. 같은 L2 안이면 L2로, 다른 L2에 걸치면 첫 항목에 넣고 '합산 공시'로 표시합니다.</td></tr>`;
+  $('#dictTable').innerHTML = d;
+}
+
+/* ═════════ 9. 표준 입력 양식 (엑셀) ═════════ */
+function downloadTemplate(){
+  if(typeof XLSX==='undefined'){ alert('엑셀 라이브러리를 불러오지 못했습니다'); return; }
+  const D = state.ds.co, aoa = [[`물류사 손익 표준 입력 양식`], [`(단위 : ${unitName()})`], ['코드','표준 항목','금액','직접/간접','그룹','설명']];
+  for(const g of GROUPS){
+    aoa.push([g.total, `${g.n}(합계)`, D.v[g.total]??null, '', g.n, '총액 (선택)']);
+    g.items.forEach(it=>{
+      const nd = NODE[it.k], dir = g.id==='rev' ? '' : (dirOf('co', it.k)==='D'?'직접':'간접');
+      aoa.push([it.k, it.n, D.v[it.k]??null, dir, g.n, nd.kids.length ? '세부 구분 없는 금액만 (세부는 아래 행)' : (it.d||'')]);
+      nd.kids.forEach(ck=>aoa.push([ck, fullName(ck), D.v[ck]??null, '', g.n, '']));
+    });
+  }
+  const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = [{wch:8},{wch:38},{wch:16},{wch:10},{wch:14},{wch:36}];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '손익입력');
+  XLSX.writeFile(wb, 'logistics_pl_template.xlsx');
+}
+
+/* ═════════ 10. 이벤트 · 초기화 ═════════ */
+function showView(v){
+  $$('.tab').forEach(t=>t.classList.toggle('on', t.dataset.v===v));
+  $$('.view').forEach(x=>x.classList.toggle('on', x.id==='v-'+v));
+  if(v==='dash') renderDash();
+  if(v==='bench') renderBench();
+}
+$$('.tab').forEach(t=>t.onclick=()=>showView(t.dataset.v));
+const fileIn = $('#file');
+$$('.drop').forEach(dz=>{
+  dz.onclick = ()=>{ ex.target = dz.dataset.target; fileIn.click(); };
+  ['dragenter','dragover'].forEach(e=>dz.addEventListener(e, ev=>{ev.preventDefault(); dz.classList.add('over');}));
+  ['dragleave','drop'].forEach(e=>dz.addEventListener(e, ev=>{ev.preventDefault(); dz.classList.remove('over');}));
+  dz.addEventListener('drop', ev=>{ ex.target = dz.dataset.target; handleFile(ev.dataTransfer.files[0]); });
+});
+fileIn.onchange = ()=>{ handleFile(fileIn.files[0]); fileIn.value=''; };
+$('#exSheet').onchange = e=>selectSheet(e.target.value);
+$('#exCol').onchange = remap;
+$('#exPages').onchange = remap;
+$('#exUnit').onchange = renderExTable;
+$('#exOnlyMapped').onchange = renderExTable;
+$('#btnApply').onclick = applyExtraction;
+$('#btnTemplate').onclick = downloadTemplate;
+$('#unit').onchange = updateRecon;
+$$('#dsSeg button').forEach(b=>b.onclick=()=>{ state.edit = b.dataset.ds; fillForm(); });
+$$('#dashSeg button').forEach(b=>b.onclick=()=>{ if(!hasData(b.dataset.ds)) return; state.view = b.dataset.ds; renderDash(); });
+$('#btnAnalyze').onclick = ()=>{ state.view = state.edit; showView('dash'); };
+$('#basis').onchange = renderDash;
+$('#btnExpand').onclick = ()=>{ const ts = $$('#detail .tog[data-t]'); const open = ts.some(t=>t.textContent==='▸'); ts.forEach(t=>{ if((t.textContent==='▸')===open) t.click(); }); $('#btnExpand').textContent = open ? '세부(L3) 모두 접기' : '세부(L3) 모두 펼치기'; };
+$('#btnCopy').onclick = ()=>{
+  if(!hasData('dart')){ alert('DART 공시 데이터가 없습니다.'); return; }
+  if(hasData('co') && !confirm('회사 제공 자료를 DART 값으로 덮어쓸까요?')) return;
+  state.ds.co = JSON.parse(JSON.stringify(state.ds.dart)); state.edit = 'co'; fillForm();
+};
+$('#btnClear').onclick = ()=>{ if(!confirm(`${DS_NAME[state.edit]} 입력값을 모두 지울까요?`)) return; state.ds[state.edit] = newDs(); fillForm(); };
+$('#btnSample').onclick = ()=>{
+  $('#coName').value = '샘플물류(주)'; $('#coYear').value = '2025'; $('#unit').value = '1000000';
+  state.ds.dart = {v:{T_REV:850000, T_COGS:775000, T_SGA:64000, C1:300000, C2:250000, C3:68000, C4b:52000, C5a:30000,
+      S1a:25000, S1b:2000, S1c:3000, S2a:12000, S3a:4000, S5:3500, S6a:2000, S6b:2000, S6c:1000, S7a:7000},
+    src:{C3:{nat:true}, C4b:{nat:true}, C5a:{nat:true}}, ext:{T_GP:75000, T_OP:11000}, dir:{}};
+  state.ds.co = {v:{T_REV:850000, R1:520000, R2:210000, R3:70000, R4:50000, T_COGS:775000, T_SGA:64000,
+      C1a:150000, C1b:40000, C1c:85000, C1d:25000, C2a:140000, C2b:90000, C2c:20000, C3a:50000, C3b:8000, C3c:10000,
+      C4a:15000, C4b:52000, C4c:5000, C5a:27000, C5b:3000, C6a:13000, C6b:5000, C6c:2000, C7a:12000, C7b:6000, C7c:7000, C7d:8000, C7e:2000,
+      S1a:25000, S1b:2000, S1c:3000, S2a:8000, S2b:4000, S3a:2500, S3b:1500, S4a:1000, S4b:1500, S5:3500, S6a:2000, S6b:2000, S6c:1000,
+      S7a:4000, S7b:1500, S7c:1000, S7d:500}, src:{}, ext:{}, dir:{}};
+  state.edit = 'dart'; state.view = 'dart'; fillForm();
+};
+$('#bReset').onclick = ()=>{ if(!confirm('업계 분포를 기본 예시값으로 되돌릴까요?')) return; BENCH = JSON.parse(JSON.stringify(BENCH_DEFAULT)); saveBench(); renderBench(); };
+$('#bExport').onclick = ()=>{
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(BENCH,null,2)], {type:'application/json'}));
+  a.download = 'logistics_benchmark.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+};
+$('#bImport').onclick = ()=>$('#bFile').click();
+$('#bFile').onchange = async e=>{
+  const f = e.target.files[0]; if(!f) return;
+  try{ const o = JSON.parse(await f.text()); if(!o.items) throw 0;
+    BENCH = {source:o.source||f.name, items:{...BENCH_DEFAULT.items, ...o.items}, share:o.share||{}}; saveBench(); renderBench();
+  }catch(_){ alert('형식이 올바르지 않습니다. {"items":{"C1":[하위25,중앙,상위25], ...}, "share":{"C1a":40}} 형식이어야 합니다.'); }
+  e.target.value = '';
+};
+const tip = $('#tip');
+document.addEventListener('mouseover', e=>{
+  const t = e.target.closest && e.target.closest('.hov'); if(!t){ tip.classList.remove('show'); return; }
+  tip.innerHTML = t.getAttribute('data-tip') || ''; tip.classList.add('show');
+});
+document.addEventListener('mousemove', e=>{
+  if(!tip.classList.contains('show')) return;
+  const w = tip.offsetWidth, h = tip.offsetHeight; let x = e.clientX + 14, y = e.clientY + 14;
+  if(x + w > innerWidth - 8) x = e.clientX - w - 14;
+  if(y + h > innerHeight - 8) y = e.clientY - h - 14;
+  tip.style.left = x+'px'; tip.style.top = y+'px';
+});
+buildForm();
+fillForm();
+</script>
+</body>
+</html>
